@@ -1791,6 +1791,22 @@ pre.code {
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
+.voice-box {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.voice-box .btn {
+  margin-top: 6px;
+}
+.voice-report {
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+.voice-report p {
+  margin: 0 0 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

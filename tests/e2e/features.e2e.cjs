@@ -150,6 +150,32 @@ const dayKana = (s, day) => Object.entries(s.kanaLog).filter(([k]) => k.startsWi
   ok(errors.length === 0, 'нет ошибок в консоли ' + errors.join('; '));
   await ctx.close();
 
+  // Android: список голосов пуст, но говорить браузер умеет — режим «На слух» всё равно работает
+  const ctx4 = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx4.addInitScript(() => {
+    window.__spoken = [];
+    speechSynthesis.getVoices = () => [];
+    speechSynthesis.speak = (u) => {
+      window.__spoken.push(u.text + '|' + u.lang);
+      setTimeout(() => u.dispatchEvent(new Event('start')), 50);
+    };
+  });
+  const p4 = await ctx4.newPage();
+  await p4.goto(APP);
+  await p4.getByRole('button', { name: 'Поехали' }).click();
+  await p4.goto(APP + '#/kana');
+  await p4.getByRole('radio', { name: 'На слух' }).click();
+  await p4.getByText(/Японский голос в списке не найден/).waitFor({ timeout: 4000 });
+  await p4.getByRole('button', { name: 'Проверить голос' }).click();
+  await p4.getByText(/Браузер начал говорить/).waitFor({ timeout: 4000 });
+  ok(true, 'пустой список голосов: проверка голоса сообщает, что браузер говорит');
+  ok(await p4.getByRole('button', { name: /^Начать/ }).isEnabled(), 'пустой список голосов не блокирует режим');
+  await p4.getByRole('button', { name: /^Начать/ }).click();
+  await p4.waitForFunction(() => window.__spoken.length >= 2, null, { timeout: 4000 });
+  const sp4 = await p4.evaluate(() => window.__spoken);
+  ok(sp4[1].endsWith('|ja-JP'), 'произносится по языку ja-JP: ' + sp4[1]);
+  await ctx4.close();
+
   // дневник, открытый через полночь, пишет в новый день
   const ctx3 = await b.newContext({ viewport: { width: 390, height: 844 } });
   const p3 = await ctx3.newPage();

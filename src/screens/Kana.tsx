@@ -6,7 +6,7 @@ import {
   type KanaItem, type Reading, type Script,
 } from '../kana.ts';
 import { isWordCorrect, wordItems, type WordItem } from '../kana-words.ts';
-import { VOICE_HELP, findJapaneseVoice, speak } from '../speech.ts';
+import { checkVoice, findJapaneseVoice, speak, speechSupported, type VoiceCheck } from '../speech.ts';
 import { timerBlock } from '../timer.ts';
 import { Header } from '../ui.tsx';
 import { deviceDayKey } from '../device.ts';
@@ -170,9 +170,10 @@ export function Kana({ s, today }: { s: State; today: string }) {
 }
 
 function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Partial<Prefs>) => void; s: State; onStart: () => void }) {
-  const [voice, setVoice] = useState<boolean | null>(null);
+  const [voiceName, setVoiceName] = useState<string | null | undefined>(undefined);
+  const [check, setCheck] = useState<VoiceCheck | 'busy' | null>(null);
   useEffect(() => {
-    if (prefs.drill === 'audio') findJapaneseVoice().then((v) => setVoice(!!v));
+    if (prefs.drill === 'audio') findJapaneseVoice().then((v) => setVoiceName(v ? v.name : null));
   }, [prefs.drill]);
   const toggleRow = (id: string) =>
     setPrefs({ rows: prefs.rows.includes(id) ? prefs.rows.filter((r) => r !== id) : [...prefs.rows, id] });
@@ -184,7 +185,8 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
   const weak = itemsFor(prefs.script, ROWS.map((r) => r.id)).filter((i) => s.kana[i.key] && s.kana[i.key].box < MASTERED && s.kana[i.key].bad > 0);
   const count = entriesFor(prefs).length;
   const hasMode = prefs.drill === 'read' || prefs.drill === 'words';
-  const blocked = count === 0 || (prefs.drill === 'audio' && voice === false);
+  // голос не блокирует: на Android список голосов бывает пустым, хотя говорить браузер умеет
+  const blocked = count === 0 || (prefs.drill === 'audio' && !speechSupported());
   const drill = DRILLS.find((d) => d.id === prefs.drill)!;
   return (
     <section class="card">
@@ -263,7 +265,38 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
           Можно набирать и кириллицей (Поливанов), и латиницей (Хэпбёрн).{prefs.drill === 'words' && ' Долгие гласные можно писать как угодно: гакко:, гакко, gakkou.'}
         </p>
       )}
-      {prefs.drill === 'audio' && voice === false && <div class="banner">{VOICE_HELP}</div>}
+      {prefs.drill === 'audio' && (
+        <div class="voice-box">
+          <p class="small-text">
+            {!speechSupported()
+              ? 'Этот браузер не умеет синтез речи.'
+              : voiceName
+                ? <>Голос: <b>{voiceName}</b></>
+                : voiceName === null
+                  ? 'Японский голос в списке не найден — на Android так бывает, даже когда он есть. Проверь:'
+                  : 'Ищу японский голос…'}
+          </p>
+          {speechSupported() && (
+            <button
+              class="btn small"
+              disabled={check === 'busy'}
+              onClick={async () => {
+                setCheck('busy');
+                setCheck(await checkVoice());
+              }}
+            >
+              {check === 'busy' ? 'Проверяю…' : 'Проверить голос'}
+            </button>
+          )}
+          {check && check !== 'busy' && (
+            <div class={`banner ${check.ok ? 'good' : ''} voice-report`}>
+              {check.lines.map((l) => (
+                <p>{l}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div class="row">
         <button class="btn primary" disabled={blocked} onClick={onStart}>
           Начать · {count} {prefs.drill === 'words' ? (count === 1 ? 'слово' : 'слов') : count === 1 ? 'знак' : 'знаков'}
@@ -303,12 +336,13 @@ function Session({
   const total = prefs.length;
 
   useEffect(() => {
-    findJapaneseVoice().then((v) => setVoice(!!v));
+    // голос пробуем всегда, когда браузер умеет синтез: найденный в списке — или просто по языку ja-JP
+    findJapaneseVoice().then(() => setVoice(speechSupported()));
   }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
-    if (q.kind === 'audio') findJapaneseVoice().then((v) => v && speak(q.say!));
+    if (q.kind === 'audio') findJapaneseVoice().then(() => speak(q.say!));
   }, [q]);
 
   const next = (all: Answer[]) => {
