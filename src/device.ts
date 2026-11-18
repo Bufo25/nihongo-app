@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'preact/hooks';
 
 export interface Device {
+  id: string; // короткий случайный идентификатор этого устройства
   syncProvider: 'github' | 'google';
   githubRepo: string; // «логин/репозиторий»
   githubToken: string;
@@ -18,7 +19,10 @@ export interface Device {
 
 const KEY = 'nihongo-device';
 
+const newId = () => Math.random().toString(36).slice(2, 8);
+
 const defaults = (): Device => ({
+  id: newId(),
   syncProvider: 'github',
   githubRepo: '',
   githubToken: '',
@@ -55,6 +59,18 @@ function load(): Device {
 }
 
 let device = load();
+if (!JSON.parse(localStorage.getItem(KEY) ?? '{}').id) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(device)); // запомнить id сразу
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Ключ записи за день для этого устройства: «YYYY-MM-DD@id». */
+export function deviceDayKey(day: string): string {
+  return `${day}@${device.id}`;
+}
 const subs = new Set<() => void>();
 
 export function getDevice(): Device {

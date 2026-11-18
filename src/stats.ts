@@ -1,6 +1,6 @@
 // Расчёты для экрана статистики. Без DOM — проверяются тестами.
 import {
-  addDays, computeStreak, diffDays, mondayOf, planWeekOf, weekRange, type Mark, type State,
+  addDays, computeStreak, dailyTotals, diffDays, mondayOf, planWeekOf, weekRange, type Mark, type State,
 } from './logic.ts';
 import { BLOCKS, type BlockId } from './plan.ts';
 
@@ -18,7 +18,7 @@ export interface PlanWeekRow {
 }
 
 function minutesOn(s: State, k: string): number {
-  return Object.values(s.minutes[k] ?? {}).reduce((a, b) => a + (b ?? 0), 0);
+  return Object.values(dailyTotals(s).minutes[k] ?? {}).reduce((a, b) => a + (b ?? 0), 0);
 }
 
 /** Недели плана, которые уже начались. */
@@ -62,11 +62,11 @@ export function calendarWeeks(s: State, today: string, count: number): CalWeek[]
     const w: CalWeek = { mon, minutes: 0, byBlock: {}, kanaN: 0, kanaOk: 0, kanaMs: 0 };
     for (let d = 0; d < 7; d++) {
       const k = addDays(mon, d);
-      for (const [b, m] of Object.entries(s.minutes[k] ?? {})) {
+      for (const [b, m] of Object.entries(dailyTotals(s).minutes[k] ?? {})) {
         w.byBlock[b as BlockId] = (w.byBlock[b as BlockId] ?? 0) + (m ?? 0);
         w.minutes += m ?? 0;
       }
-      const kl = s.kanaLog[k];
+      const kl = dailyTotals(s).kana[k];
       if (kl) {
         w.kanaN += kl.n;
         w.kanaOk += kl.ok;
@@ -113,10 +113,10 @@ export function totals(s: State, today: string): Totals {
   const st = computeStreak(s, today);
   const full = Object.values(st.marks).filter((m) => m === 'full').length;
   let minutes = 0;
-  for (const k of Object.keys(s.minutes)) if (k <= today) minutes += minutesOn(s, k);
+  for (const k of Object.keys(dailyTotals(s).minutes)) if (k <= today) minutes += minutesOn(s, k);
   let kanaN = 0;
   let kanaOk = 0;
-  for (const v of Object.values(s.kanaLog)) {
+  for (const v of Object.values(dailyTotals(s).kana)) {
     kanaN += v.n;
     kanaOk += v.ok;
   }
@@ -148,8 +148,8 @@ export function monthRows(s: State, today: string): MonthRow[] {
       row.counted += w.full + w.light;
       row.minutes += w.minutes;
       for (let k = w.start; k <= w.end && k <= today; k = addDays(k, 1)) {
-        row.kanaN += s.kanaLog[k]?.n ?? 0;
-        row.kanaOk += s.kanaLog[k]?.ok ?? 0;
+        row.kanaN += dailyTotals(s).kana[k]?.n ?? 0;
+        row.kanaOk += dailyTotals(s).kana[k]?.ok ?? 0;
       }
     }
     out.push(row);
@@ -160,7 +160,7 @@ export function monthRows(s: State, today: string): MonthRow[] {
 /** Минуты по блокам за всё время — от большего к меньшему. */
 export function minutesByBlock(s: State, today: string): { id: BlockId; title: string; minutes: number }[] {
   const acc: Partial<Record<BlockId, number>> = {};
-  for (const [k, v] of Object.entries(s.minutes)) {
+  for (const [k, v] of Object.entries(dailyTotals(s).minutes)) {
     if (k > today) continue;
     for (const [b, m] of Object.entries(v)) acc[b as BlockId] = (acc[b as BlockId] ?? 0) + (m ?? 0);
   }

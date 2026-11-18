@@ -4,6 +4,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { BLOCK_BY_ID, type BlockId } from './plan.ts';
 import { dayKey } from './logic.ts';
 import { update } from './store.ts';
+import { deviceDayKey } from './device.ts';
 
 const KEY = 'nihongo-timer';
 
@@ -75,7 +76,7 @@ function logMinutes(t: TimerState, ms: number, markDone: boolean) {
   if (min <= 0 && !markDone) return;
   update((s) => {
     if (min > 0) {
-      const m = (s.minutes[t.date] ??= {});
+      const m = (s.minutes[deviceDayKey(t.date)] ??= {});
       m[t.block] = (m[t.block] ?? 0) + min;
     }
     if (markDone) (s.days[t.date] ??= { done: {} }).done[t.block] = true;

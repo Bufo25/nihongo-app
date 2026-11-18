@@ -10,6 +10,10 @@ const src = fs.readFileSync(path.join(__dirname, '../../src/kana-words.ts'), 'ut
 const READING = Object.fromEntries([...src.matchAll(/\['([^']+)', '[^']*', '([^']+)', '([^']+)'\]/g)].map((m) => [m[1], m[2]]));
 
 const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')));
+// записи за день хранятся по устройствам («день@id») — складываем
+const dayMinutes = (s, day, block) =>
+  Object.entries(s.minutes).filter(([k]) => k.startsWith(day)).reduce((a, [, v]) => a + (v[block] ?? 0), 0);
+const dayKana = (s, day) => Object.entries(s.kanaLog).filter(([k]) => k.startsWith(day)).reduce((a, [, v]) => a + v.n, 0);
 
 (async () => {
   const b = await chromium.launch();
@@ -45,7 +49,8 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   await p.clock.runFor(10 * 60_000 + 2000);
   await p.getByText(/Время вышло — «Кана» отмечен/).waitFor({ timeout: 3000 });
   let s = await st(p);
-  ok(s.days['2026-11-17'].done.kana && s.minutes['2026-11-17'].kana === 15, 'по окончании: блок отмечен, 15 минут записаны');
+  ok(s.days['2026-11-17'].done.kana && dayMinutes(s, '2026-11-17', 'kana') === 15, 'по окончании: блок отмечен, 15 минут записаны');
+  ok(Object.keys(s.minutes).every((k) => /^\d{4}-\d{2}-\d{2}@\w+$/.test(k)), 'минуты записаны под ключом устройства: ' + Object.keys(s.minutes).join(', '));
   await p.getByRole('button', { name: 'Ок' }).click();
 
   // досрочный «Стоп» — записывает минуты без отметки (неделя 2+ не нужна: снимем кану и запустим снова)
@@ -54,7 +59,7 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   await p.clock.runFor(4 * 60_000);
   await p.locator('.timer-bar button', { hasText: 'Стоп' }).click();
   s = await st(p);
-  ok(!s.days['2026-11-17'].done.kana && s.minutes['2026-11-17'].kana === 19, 'Стоп: +4 минуты, блок не отмечен');
+  ok(!s.days['2026-11-17'].done.kana && dayMinutes(s, '2026-11-17', 'kana') === 19, 'Стоп: +4 минуты, блок не отмечен');
 
   // подсказка дневника
   await p.goto(APP + '#/diary');
@@ -129,7 +134,7 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   await p.getByText('Результат').waitFor({ timeout: 3000 });
   ok((await p.locator('.result-stats b').first().textContent()) === '90%', 'слова: 9 из 10 верно');
   s = await st(p);
-  ok(s.kanaLog['2026-11-17'].n >= 10 && Object.keys(s.kana).some((k) => k.startsWith('w:')), 'журнал тренажёра и статистика слов записаны');
+  ok(dayKana(s, '2026-11-17') >= 10 && Object.keys(s.kana).some((k) => k.startsWith('w:')), 'журнал тренажёра и статистика слов записаны');
 
   // статистика
   await p.goto(APP + '#/stats');
@@ -144,6 +149,22 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   ok(await p.locator('.tip').isVisible(), 'подсказка у столбика при фокусе');
   ok(errors.length === 0, 'нет ошибок в консоли ' + errors.join('; '));
   await ctx.close();
+
+  // дневник, открытый через полночь, пишет в новый день
+  const ctx3 = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const p3 = await ctx3.newPage();
+  await p3.clock.install({ time: new Date('2026-11-17T23:59:00') });
+  await p3.goto(APP);
+  await p3.getByRole('button', { name: 'Поехали' }).click();
+  await p3.goto(APP + '#/diary');
+  await p3.getByText('Сегодня, 17 ноября').waitFor();
+  await p3.clock.runFor(2 * 60_000);
+  await p3.getByText('Сегодня, 18 ноября').waitFor({ timeout: 5000 });
+  await p3.locator('textarea').fill('あたらしい ひです。');
+  await p3.getByRole('button', { name: 'Сохранить' }).click();
+  const d3 = (await st(p3)).diary;
+  ok(d3['2026-11-18'] === 'あたらしい ひです。' && !d3['2026-11-17'], 'дневник после полуночи пишет в новый день');
+  await ctx3.close();
 
   // плашка «Вышла новая версия»: меняем sw.js — браузер находит новую версию
   const swPath = path.join(__dirname, '../../dist/sw.js');

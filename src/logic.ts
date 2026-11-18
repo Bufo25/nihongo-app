@@ -26,8 +26,10 @@ export interface State {
   lessons: Record<string, LessonState>; // уроки Minna: "1".."14"
   words: Record<string, number>; // сколько слов в Anki на дату
   kana: Record<string, KanaStat>; // статистика тренажёра по знакам (и словам: "w:слово")
+  // Ключи: «YYYY-MM-DD@устройство» — у каждого устройства своя запись за день, чтобы синхронизация
+  // не затирала счёт другого устройства. Старые ключи «YYYY-MM-DD» тоже читаются.
   kanaLog: Record<string, KanaDay>; // занятия тренажёром по дням
-  minutes: Record<string, Partial<Record<BlockId, number>>>; // минуты по блокам за день (таймер)
+  minutes: Record<string, Partial<Record<BlockId, number>>>; // минуты по блокам за день (таймер, тренажёр)
   mtime: Record<string, number>; // когда менялся каждый элемент — для слияния при синхронизации
 }
 
@@ -291,4 +293,32 @@ export function lastSolidLesson(s: State): number {
 export function latestWords(s: State): { date: string; count: number } | null {
   const k = Object.keys(s.words).sort().pop();
   return k ? { date: k, count: s.words[k] } : null;
+}
+
+// ---------- записи по дням с разных устройств ----------
+
+/** День из ключа «YYYY-MM-DD@устройство» (или старого «YYYY-MM-DD»). */
+export const dayOfKey = (k: string): string => k.slice(0, 10);
+
+const aggCache = new WeakMap<State, { minutes: Record<string, Partial<Record<BlockId, number>>>; kana: Record<string, KanaDay> }>();
+
+/** Минуты и занятия тренажёром, сложенные по дням со всех устройств. */
+export function dailyTotals(s: State) {
+  const hit = aggCache.get(s);
+  if (hit) return hit;
+  const minutes: Record<string, Partial<Record<BlockId, number>>> = {};
+  for (const [k, v] of Object.entries(s.minutes ?? {})) {
+    const d = (minutes[dayOfKey(k)] ??= {});
+    for (const [b, m] of Object.entries(v)) d[b as BlockId] = (d[b as BlockId] ?? 0) + (m ?? 0);
+  }
+  const kana: Record<string, KanaDay> = {};
+  for (const [k, v] of Object.entries(s.kanaLog ?? {})) {
+    const d = (kana[dayOfKey(k)] ??= { n: 0, ok: 0, ms: 0 });
+    d.n += v.n;
+    d.ok += v.ok;
+    d.ms += v.ms;
+  }
+  const res = { minutes, kana };
+  aggCache.set(s, res);
+  return res;
 }

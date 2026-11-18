@@ -54,3 +54,32 @@ test('часы коротко', () => {
   assert.equal(fmtHoursShort(90), '1,5 ч');
   assert.equal(fmtHoursShort(1409), '23,5 ч');
 });
+
+import { merge, stampChanges } from '../src/merge.ts';
+import type { State } from '../src/logic.ts';
+
+test('занятия в один день на двух устройствах складываются и переживают синхронизацию', () => {
+  const base = emptyState();
+  base.startDate = '2026-11-02';
+  const edit = (s: State, fn: (x: State) => void, t: number) => {
+    const n = structuredClone(s);
+    fn(n);
+    stampChanges(s, n, t);
+    return n;
+  };
+  const pc = edit(base, (x) => {
+    x.minutes['2026-11-10@pc'] = { anki: 10 };
+    x.kanaLog['2026-11-10@pc'] = { n: 20, ok: 18, ms: 30000 };
+  }, 100);
+  const phone = edit(base, (x) => {
+    x.minutes['2026-11-10@ph'] = { anki: 5, wagotabi: 15 };
+    x.kanaLog['2026-11-10@ph'] = { n: 10, ok: 5, ms: 20000 };
+  }, 200);
+  const both = merge(pc, phone).state;
+  // старая запись без устройства тоже учитывается
+  both.minutes['2026-11-10'] = { kana: 3 };
+  const w = calendarWeeks(both, '2026-11-10', 1)[0];
+  assert.deepEqual(w.byBlock, { anki: 15, wagotabi: 15, kana: 3 });
+  assert.equal(w.kanaN, 30);
+  assert.equal(totals(both, '2026-11-10').minutes, 33);
+});

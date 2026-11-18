@@ -5,15 +5,23 @@ import { diaryPromptsUpTo } from '../plan.ts';
 import { Header } from '../ui.tsx';
 
 export function Diary({ s, today }: { s: State; today: string }) {
-  const [editing, setEditingRaw] = useState(today);
+  // null — «сегодня»: запись всегда идёт в текущий день, даже если экран открыт через полночь
+  const [picked, setPicked] = useState<string | null>(null);
+  const editing = picked ?? today;
   const saved = s.diary[editing] ?? '';
   const [text, setText] = useState(saved);
   // текст подгружаем в момент выбора другого дня — не эффектом после отрисовки,
   // иначе он мог затереть то, что уже начали печатать
   const setEditing = (k: string) => {
-    setEditingRaw(k);
+    setPicked(k === today ? null : k);
     setText(s.diary[k] ?? '');
   };
+  // наступила полночь: если вчерашний текст не трогали — показать запись нового дня
+  const [shownDay, setShownDay] = useState(today);
+  if (shownDay !== today) {
+    setShownDay(today);
+    if (picked === null && text === (s.diary[shownDay] ?? '')) setText(s.diary[today] ?? '');
+  }
   const [flash, setFlash] = useState(false);
 
 
@@ -27,7 +35,7 @@ export function Diary({ s, today }: { s: State; today: string }) {
     });
     setFlash(true);
     setTimeout(() => setFlash(false), 2000);
-    if (editing !== today) setEditing(today);
+    if (picked !== null) setEditing(today);
   };
 
   const entries = Object.entries(s.diary).sort(([a], [b]) => (a < b ? 1 : -1));

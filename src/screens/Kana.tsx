@@ -9,6 +9,7 @@ import { isWordCorrect, wordItems, type WordItem } from '../kana-words.ts';
 import { VOICE_HELP, findJapaneseVoice, speak } from '../speech.ts';
 import { timerBlock } from '../timer.ts';
 import { Header } from '../ui.tsx';
+import { deviceDayKey } from '../device.ts';
 
 /** read — знак → чтение; reverse — чтение → знак; audio — на слух → знак; words — слово → чтение */
 type Drill = 'read' | 'reverse' | 'audio' | 'words';
@@ -329,7 +330,7 @@ function Session({
     const min = Math.round(all.reduce((a, b) => a + b.ms, 0) / 60000);
     if (min > 0 && timerBlock() !== 'kana') {
       update((st) => {
-        const m = (st.minutes[today] ??= {});
+        const m = (st.minutes[deviceDayKey(today)] ??= {});
         m.kana = (m.kana ?? 0) + min;
       });
     }
@@ -344,7 +345,7 @@ function Session({
     setFeedback({ ok, given });
     update((st) => {
       st.kana[q.key] = applyAnswer(st.kana[q.key], ok);
-      const d = (st.kanaLog[today] ??= { n: 0, ok: 0, ms: 0 });
+      const d = (st.kanaLog[deviceDayKey(today)] ??= { n: 0, ok: 0, ms: 0 });
       d.n++;
       if (ok) d.ok++;
       d.ms += Math.round(ms);
