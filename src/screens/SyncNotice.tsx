@@ -11,7 +11,9 @@ export function SyncNotice() {
   return (
     <div class="banner sync-banner">
       <span>
-        {st.phase === 'need-auth'
+        {st.phase === 'need-auth' && st.message && st.message !== 'Нужно войти заново'
+          ? st.message
+          : st.phase === 'need-auth'
           ? hasUnsynced()
             ? 'Есть отметки, которых нет на другом устройстве.'
             : 'Войди снова, чтобы получить отметки с другого устройства.'

@@ -4,7 +4,7 @@ import { applySynced, getState, onLocalChange } from './store.ts';
 import { emptyState, type State } from './logic.ts';
 import { merge, syncPayload } from './merge.ts';
 import { getDevice, setDevice } from './device.ts';
-import { NeedAuthError, provider, type RemoteFile } from './providers.ts';
+import { ConflictError, NeedAuthError, provider, type RemoteFile } from './providers.ts';
 
 export type SyncPhase = 'off' | 'idle' | 'syncing' | 'need-auth' | 'error';
 
@@ -63,7 +63,7 @@ export function syncNow(interactive = false): Promise<void> {
   return running;
 }
 
-async function run(interactive: boolean): Promise<void> {
+async function run(interactive: boolean, retried = false): Promise<void> {
   if (!navigator.onLine) {
     setStatus({ phase: 'error', message: 'Нет интернета — синхронизирую, когда появится' });
     return;
@@ -100,7 +100,9 @@ async function run(interactive: boolean): Promise<void> {
     setDevice({ lastSync: startedAt, syncEnabled: true });
     setStatus({ phase: 'idle' });
   } catch (e) {
-    if (e instanceof NeedAuthError) setStatus({ phase: 'need-auth' });
+    // файл поменялся с другого устройства между чтением и записью — перечитать и слить ещё раз
+    if (e instanceof ConflictError && !retried) return run(interactive, true);
+    if (e instanceof NeedAuthError) setStatus({ phase: 'need-auth', message: e.message });
     else setStatus({ phase: 'error', message: e instanceof Error ? e.message : String(e) });
     if (interactive) throw e;
   }
@@ -133,17 +135,4 @@ export async function disconnect(): Promise<void> {
   await provider().signOut();
   setDevice({ token: null, syncEnabled: false, driveFileId: null, lastSync: null });
   setStatus({ phase: 'off' });
-}
-
-/** Результат возврата со страницы входа Яндекса — показываем в настройках. */
-let yandexReturn: { ok: boolean; message?: string } | null = null;
-export function setYandexReturn(r: { ok: boolean; message?: string } | null) {
-  yandexReturn = r;
-  if (r?.ok) setStatus({ phase: 'idle' });
-  if (r && !r.ok) setStatus({ phase: getDevice().syncEnabled ? 'error' : 'off', message: r.message });
-}
-export function takeYandexReturn() {
-  const r = yandexReturn;
-  yandexReturn = null;
-  return r;
 }

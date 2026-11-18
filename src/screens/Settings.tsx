@@ -5,9 +5,8 @@ import { askPermission, downloadIcs, notificationsSupported, registerPeriodic, t
 import { getInstallPrompt, onInstallPromptChange } from '../install.ts';
 import { Header } from '../ui.tsx';
 import { setDevice, useDevice } from '../device.ts';
-import { disconnect, hasUnsynced, syncNow, takeYandexReturn, useSyncStatus } from '../sync.ts';
+import { disconnect, hasUnsynced, syncNow, useSyncStatus } from '../sync.ts';
 import { PROVIDERS } from '../providers.ts';
-import { yandexRedirectUri } from '../yandex.ts';
 import { ankiWordCount } from '../anki.ts';
 
 export function Settings({ s }: { s: State; today: string }) {
@@ -160,7 +159,7 @@ export function Settings({ s }: { s: State; today: string }) {
       <section class="card">
         <h2>Данные</h2>
         <p class="small-text">
-          Данные хранятся на этом устройстве. Если включена синхронизация — копия лежит ещё и в папке приложения на твоём Яндекс Диске или Google Drive.
+          Данные хранятся на этом устройстве. Если включена синхронизация — копия лежит ещё в твоём закрытом репозитории на GitHub (или на Google Drive).
         </p>
         <p class="small-text">
           Защита от автоочистки браузером:{' '}
@@ -207,19 +206,20 @@ function ago(t: number | null): string {
 function SyncSection() {
   const dev = useDevice();
   const st = useSyncStatus();
-  const [ret] = useState(() => takeYandexReturn());
-  const [err, setErr] = useState(ret && !ret.ok ? ret.message ?? '' : '');
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [justConnected, setJustConnected] = useState(false);
   const pid = dev.syncProvider;
   const p = PROVIDERS[pid];
-  const clientId = pid === 'yandex' ? dev.yandexClientId : dev.googleClientId;
-  const [showHelp, setShowHelp] = useState(!clientId);
+  const filled = pid === 'github' ? !!(dev.githubRepo.trim() && dev.githubToken.trim()) : !!dev.googleClientId;
+  const [showHelp, setShowHelp] = useState(!filled);
 
-  const run = async () => {
+  const run = async (connecting = false) => {
     setErr('');
     setBusy(true);
     try {
       await syncNow(true);
+      if (connecting) setJustConnected(true);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -231,28 +231,37 @@ function SyncSection() {
     <section class="card">
       <h2>Синхронизация ПК и телефона</h2>
       <p class="muted small-text">
-        Отметки, дневник, разборы, уроки, слова и статистика каны — одни и те же на всех устройствах. Приложение видит только свою папку, а не
-        остальные файлы.
+        Отметки, дневник, разборы, уроки, слова и статистика каны — одни и те же на всех устройствах.
       </p>
       {dev.syncEnabled ? (
         <>
           <p class="small-text">
-            <b>{p.title}</b> ·{' '}
-            {st.phase === 'syncing'
-              ? 'синхронизирую…'
-              : st.phase === 'error'
-                ? <span class="error-text">{st.message}</span>
-                : `последняя синхронизация: ${ago(dev.lastSync)}`}
-            {st.phase === 'need-auth' && ' · вход истёк — нажми «Синхронизировать»'}
+            <b>{p.title}</b>
+            {pid === 'github' && <span class="muted"> · {dev.githubRepo}</span>} ·{' '}
+            {st.phase === 'syncing' ? (
+              'синхронизирую…'
+            ) : st.phase === 'error' || (st.phase === 'need-auth' && st.message && pid === 'github') ? (
+              <span class="error-text">{st.message}</span>
+            ) : (
+              `последняя синхронизация: ${ago(dev.lastSync)}`
+            )}
+            {st.phase === 'need-auth' && pid === 'google' && ' · вход истёк — нажми «Синхронизировать»'}
             {st.phase !== 'syncing' && hasUnsynced() && ' · есть неотправленные изменения'}
           </p>
+          {justConnected && st.phase === 'idle' && <p class="saved">Подключено ✓</p>}
           <div class="row">
-            <button class="btn primary small" onClick={run} disabled={busy || st.phase === 'syncing'}>
+            <button class="btn primary small" onClick={() => run()} disabled={busy || st.phase === 'syncing'}>
               Синхронизировать
             </button>
             <button
               class="btn ghost small"
-              onClick={() => confirm('Отключить синхронизацию на этом устройстве? Данные останутся и здесь, и в облаке.') && disconnect()}
+              onClick={() =>
+                confirm(
+                  pid === 'github'
+                    ? 'Отключить синхронизацию на этом устройстве? Токен будет удалён с устройства, данные останутся и здесь, и в репозитории.'
+                    : 'Отключить синхронизацию на этом устройстве? Данные останутся и здесь, и в облаке.',
+                ) && disconnect()
+              }
             >
               Отключить
             </button>
@@ -261,68 +270,103 @@ function SyncSection() {
             Синхронизирует сама при запуске, после отметок и при возврате в приложение.
             {pid === 'google'
               ? ' Вход в Google действует около часа — потом понадобится одно нажатие «Синхронизировать».'
-              : ' Вход в Яндекс действует около года.'}
+              : ' Токен действует до даты, которую ты выбрал при создании.'}
           </p>
         </>
       ) : (
         <>
           <div class="seg">
-            <button class={pid === 'yandex' ? 'on' : ''} onClick={() => setDevice({ syncProvider: 'yandex', token: null })}>
-              Яндекс Диск
+            <button class={pid === 'github' ? 'on' : ''} onClick={() => setDevice({ syncProvider: 'github', token: null })}>
+              GitHub
             </button>
             <button class={pid === 'google' ? 'on' : ''} onClick={() => setDevice({ syncProvider: 'google', token: null })}>
               Google Drive
             </button>
           </div>
-          <label class="field">
-            <span>{pid === 'yandex' ? 'ClientID приложения Яндекса' : 'OAuth Client ID'}</span>
-            <input
-              class="text-input"
-              value={clientId}
-              placeholder={pid === 'yandex' ? '32 символа: буквы и цифры' : '1234567890-abc….apps.googleusercontent.com'}
-              spellcheck={false}
-              autocomplete="off"
-              onInput={(e) => {
-                const v = (e.target as HTMLInputElement).value.trim();
-                setDevice(pid === 'yandex' ? { yandexClientId: v } : { googleClientId: v });
-              }}
-            />
-          </label>
+          {pid === 'github' ? (
+            <>
+              <p class="muted small-text">Данные хранятся в одном файле в твоём закрытом репозитории на GitHub.</p>
+              <label class="field">
+                <span>Репозиторий</span>
+                <input
+                  class="text-input"
+                  value={dev.githubRepo}
+                  placeholder="логин/nihongo-data"
+                  spellcheck={false}
+                  autocomplete="off"
+                  autocapitalize="off"
+                  onInput={(e) => setDevice({ githubRepo: (e.target as HTMLInputElement).value.trim() })}
+                />
+              </label>
+              <label class="field">
+                <span>Токен доступа</span>
+                <input
+                  class="text-input"
+                  type="password"
+                  value={dev.githubToken}
+                  placeholder="github_pat_…"
+                  spellcheck={false}
+                  autocomplete="off"
+                  onInput={(e) => setDevice({ githubToken: (e.target as HTMLInputElement).value.trim() })}
+                />
+              </label>
+            </>
+          ) : (
+            <label class="field">
+              <span>OAuth Client ID</span>
+              <input
+                class="text-input"
+                value={dev.googleClientId}
+                placeholder="1234567890-abc….apps.googleusercontent.com"
+                spellcheck={false}
+                autocomplete="off"
+                onInput={(e) => setDevice({ googleClientId: (e.target as HTMLInputElement).value.trim() })}
+              />
+            </label>
+          )}
           <div class="row">
-            <button class="btn primary small" onClick={run} disabled={busy || !clientId}>
-              {busy ? 'Подключаю…' : pid === 'yandex' ? 'Войти через Яндекс и подключить' : 'Войти в Google и подключить'}
+            <button class="btn primary small" onClick={() => run(true)} disabled={busy || !filled}>
+              {busy ? 'Подключаю…' : pid === 'github' ? 'Подключить' : 'Войти в Google и подключить'}
             </button>
             <button class="linklike small-text" onClick={() => setShowHelp(!showHelp)}>
-              {showHelp ? 'скрыть инструкцию' : `где взять ${pid === 'yandex' ? 'ClientID' : 'Client ID'}?`}
+              {showHelp ? 'скрыть инструкцию' : pid === 'github' ? 'как создать репозиторий и токен?' : 'где взять Client ID?'}
             </button>
           </div>
         </>
       )}
       {err && <p class="error-text small-text">{err}</p>}
-      {ret?.ok && st.phase === 'idle' && dev.lastSync && <p class="saved">Яндекс Диск подключён ✓</p>}
-      {showHelp && !dev.syncEnabled && (pid === 'yandex' ? <YandexHelp /> : <GoogleHelp />)}
+      {showHelp && !dev.syncEnabled && (pid === 'github' ? <GithubHelp /> : <GoogleHelp />)}
     </section>
   );
 }
 
-function YandexHelp() {
+function GithubHelp() {
   return (
     <ol class="plain small-text help">
       <li>
-        Открой <a href="https://oauth.yandex.ru/client/new" target="_blank" rel="noopener noreferrer">oauth.yandex.ru/client/new</a> (войди в
-        свой Яндекс ID).
-      </li>
-      <li>Название — любое, например «Японский с нуля». Платформа — <b>Веб-сервисы</b>.</li>
-      <li>
-        Redirect URI — ровно этот адрес: <code>{yandexRedirectUri()}</code>
+        Создай репозиторий на <a href="https://github.com/new" target="_blank" rel="noopener noreferrer">github.com/new</a>: название{' '}
+        <code>nihongo-data</code>, видимость <b>Private</b>. Остальное — по умолчанию.
       </li>
       <li>
-        В доступах найди <b>Яндекс Диск REST API</b> и отметь только <b>«Доступ к папке приложения на Диске»</b>.
+        Создай токен на{' '}
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">
+          github.com/settings/personal-access-tokens/new
+        </a>
+        :
+        <ul class="plain">
+          <li>Token name — любое, например «nihongo-sync»; Expiration — год или «No expiration».</li>
+          <li>
+            Repository access → <b>Only select repositories</b> → выбери <code>nihongo-data</code>.
+          </li>
+          <li>
+            Permissions → Repository permissions → <b>Contents: Read and write</b>. Больше ничего не включай.
+          </li>
+          <li>«Generate token» и скопируй его — GitHub покажет его только один раз.</li>
+        </ul>
       </li>
-      <li>Почта для связи — твоя. Создай приложение.</li>
       <li>
-        Скопируй <b>ClientID</b> (не Client secret — он не нужен) и вставь сюда. На телефоне — тот же ClientID; если телефон открывает
-        приложение с другого адреса, добавь в Redirect URI и его.
+        Вставь сюда репозиторий (<code>логин/nihongo-data</code>) и токен. На телефоне — те же. Токен храни как пароль: не публикуй и не
+        добавляй в репозиторий приложения.
       </li>
     </ol>
   );

@@ -32,7 +32,6 @@ jobs:
         env:
           # Settings → Secrets and variables → Actions → Variables: GOOGLE_CLIENT_ID (не секрет)
           VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
-          VITE_YANDEX_CLIENT_ID: ${{ vars.YANDEX_CLIENT_ID }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -8,14 +8,14 @@ export interface RemoteFile {
   state: Partial<State>;
 }
 
-export type ProviderId = 'yandex' | 'google';
+export type ProviderId = 'github' | 'google';
 
 export interface Provider {
   id: ProviderId;
   title: string;
   /** Есть действующий вход. */
   ready(): boolean;
-  /** Вход. Вызывать только по нажатию кнопки. Яндекс уводит на свою страницу и возвращает обратно. */
+  /** Вход. Вызывать только по нажатию кнопки (Google открывает окно входа). */
   signIn(): Promise<void>;
   read(): Promise<RemoteFile | null>;
   write(f: RemoteFile): Promise<void>;
@@ -23,8 +23,15 @@ export interface Provider {
 }
 
 export class NeedAuthError extends Error {
+  constructor(message = 'Нужно войти заново') {
+    super(message);
+  }
+}
+
+/** Файл в облаке поменялся с другого устройства между чтением и записью. */
+export class ConflictError extends Error {
   constructor() {
-    super('Нужно войти заново');
+    super('Файл изменился с другого устройства');
   }
 }
 
