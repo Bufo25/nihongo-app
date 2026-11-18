@@ -5,8 +5,9 @@ import { askPermission, downloadIcs, notificationsSupported, registerPeriodic, t
 import { getInstallPrompt, onInstallPromptChange } from '../install.ts';
 import { Header } from '../ui.tsx';
 import { setDevice, useDevice } from '../device.ts';
-import { hasUnsynced, syncNow, useSyncStatus } from '../sync.ts';
-import { signOut } from '../gdrive.ts';
+import { disconnect, hasUnsynced, syncNow, takeYandexReturn, useSyncStatus } from '../sync.ts';
+import { PROVIDERS } from '../providers.ts';
+import { yandexRedirectUri } from '../yandex.ts';
 import { ankiWordCount } from '../anki.ts';
 
 export function Settings({ s }: { s: State; today: string }) {
@@ -159,7 +160,7 @@ export function Settings({ s }: { s: State; today: string }) {
       <section class="card">
         <h2>Данные</h2>
         <p class="small-text">
-          Данные хранятся на этом устройстве. Если подключён Google Drive — копия лежит ещё и в скрытой папке приложения на твоём Диске.
+          Данные хранятся на этом устройстве. Если включена синхронизация — копия лежит ещё и в папке приложения на твоём Яндекс Диске или Google Drive.
         </p>
         <p class="small-text">
           Защита от автоочистки браузером:{' '}
@@ -176,7 +177,7 @@ export function Settings({ s }: { s: State; today: string }) {
           onClick={() => {
             if (
               confirm(
-                'Удалить все отметки, разборы и дневник на этом устройстве? Копия на Google Drive не удаляется — при следующей синхронизации данные вернутся.',
+                'Удалить все отметки, разборы и дневник на этом устройстве? Копия в облаке не удаляется — при следующей синхронизации данные вернутся.',
               )
             ) {
               // без отметок времени: удаление только здесь и не разъезжается на другие устройства
@@ -188,7 +189,7 @@ export function Settings({ s }: { s: State; today: string }) {
         </button>
       </section>
 
-      <p class="muted center small-text">Японский с нуля · версия 1.0</p>
+      <p class="muted center small-text">Японский с нуля · версия 1.2</p>
     </div>
   );
 }
@@ -206,9 +207,13 @@ function ago(t: number | null): string {
 function SyncSection() {
   const dev = useDevice();
   const st = useSyncStatus();
-  const [err, setErr] = useState('');
+  const [ret] = useState(() => takeYandexReturn());
+  const [err, setErr] = useState(ret && !ret.ok ? ret.message ?? '' : '');
   const [busy, setBusy] = useState(false);
-  const [showHelp, setShowHelp] = useState(!dev.googleClientId);
+  const pid = dev.syncProvider;
+  const p = PROVIDERS[pid];
+  const clientId = pid === 'yandex' ? dev.yandexClientId : dev.googleClientId;
+  const [showHelp, setShowHelp] = useState(!clientId);
 
   const run = async () => {
     setErr('');
@@ -224,20 +229,21 @@ function SyncSection() {
 
   return (
     <section class="card">
-      <h2>Синхронизация через Google Drive</h2>
+      <h2>Синхронизация ПК и телефона</h2>
       <p class="muted small-text">
-        Отметки, дневник, разборы, уроки, слова и статистика каны — одни и те же на ПК и телефоне. Приложение видит только свой файл в скрытой
-        папке, а не остальной Диск.
+        Отметки, дневник, разборы, уроки, слова и статистика каны — одни и те же на всех устройствах. Приложение видит только свою папку, а не
+        остальные файлы.
       </p>
       {dev.syncEnabled ? (
         <>
           <p class="small-text">
+            <b>{p.title}</b> ·{' '}
             {st.phase === 'syncing'
-              ? 'Синхронизирую…'
+              ? 'синхронизирую…'
               : st.phase === 'error'
                 ? <span class="error-text">{st.message}</span>
-                : `Последняя синхронизация: ${ago(dev.lastSync)}`}
-            {st.phase === 'need-auth' && ' · вход в Google истёк — нажми «Синхронизировать»'}
+                : `последняя синхронизация: ${ago(dev.lastSync)}`}
+            {st.phase === 'need-auth' && ' · вход истёк — нажми «Синхронизировать»'}
             {st.phase !== 'syncing' && hasUnsynced() && ' · есть неотправленные изменения'}
           </p>
           <div class="row">
@@ -246,59 +252,98 @@ function SyncSection() {
             </button>
             <button
               class="btn ghost small"
-              onClick={() => confirm('Отключить синхронизацию на этом устройстве? Данные останутся и здесь, и на Диске.') && signOut()}
+              onClick={() => confirm('Отключить синхронизацию на этом устройстве? Данные останутся и здесь, и в облаке.') && disconnect()}
             >
               Отключить
             </button>
           </div>
           <p class="muted small-text">
-            Синхронизирует сама при запуске, после отметок и при возврате в приложение. Вход в Google действует около часа — потом
-            понадобится одно нажатие «Синхронизировать».
+            Синхронизирует сама при запуске, после отметок и при возврате в приложение.
+            {pid === 'google'
+              ? ' Вход в Google действует около часа — потом понадобится одно нажатие «Синхронизировать».'
+              : ' Вход в Яндекс действует около года.'}
           </p>
         </>
       ) : (
         <>
+          <div class="seg">
+            <button class={pid === 'yandex' ? 'on' : ''} onClick={() => setDevice({ syncProvider: 'yandex', token: null })}>
+              Яндекс Диск
+            </button>
+            <button class={pid === 'google' ? 'on' : ''} onClick={() => setDevice({ syncProvider: 'google', token: null })}>
+              Google Drive
+            </button>
+          </div>
           <label class="field">
-            <span>OAuth Client ID</span>
+            <span>{pid === 'yandex' ? 'ClientID приложения Яндекса' : 'OAuth Client ID'}</span>
             <input
               class="text-input"
-              value={dev.googleClientId}
-              placeholder="1234567890-abc….apps.googleusercontent.com"
+              value={clientId}
+              placeholder={pid === 'yandex' ? '32 символа: буквы и цифры' : '1234567890-abc….apps.googleusercontent.com'}
               spellcheck={false}
               autocomplete="off"
-              onInput={(e) => setDevice({ googleClientId: (e.target as HTMLInputElement).value.trim() })}
+              onInput={(e) => {
+                const v = (e.target as HTMLInputElement).value.trim();
+                setDevice(pid === 'yandex' ? { yandexClientId: v } : { googleClientId: v });
+              }}
             />
           </label>
           <div class="row">
-            <button class="btn primary small" onClick={run} disabled={busy || !dev.googleClientId}>
-              {busy ? 'Подключаю…' : 'Войти в Google и подключить'}
+            <button class="btn primary small" onClick={run} disabled={busy || !clientId}>
+              {busy ? 'Подключаю…' : pid === 'yandex' ? 'Войти через Яндекс и подключить' : 'Войти в Google и подключить'}
             </button>
             <button class="linklike small-text" onClick={() => setShowHelp(!showHelp)}>
-              {showHelp ? 'скрыть инструкцию' : 'где взять Client ID?'}
+              {showHelp ? 'скрыть инструкцию' : `где взять ${pid === 'yandex' ? 'ClientID' : 'Client ID'}?`}
             </button>
           </div>
         </>
       )}
       {err && <p class="error-text small-text">{err}</p>}
-      {showHelp && !dev.syncEnabled && (
-        <ol class="plain small-text help">
-          <li>
-            Открой <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">console.cloud.google.com</a> и создай
-            проект (например, «Японский»).
-          </li>
-          <li>«APIs &amp; Services» → «Library» → найди <b>Google Drive API</b> → «Enable».</li>
-          <li>
-            «Google Auth Platform» (или «OAuth consent screen»): тип <b>External</b>, название любое. В «Audience» оставь режим <b>Testing</b> и
-            добавь свою почту в <b>Test users</b>.
-          </li>
-          <li>
-            «Clients» → «Create client» → тип <b>Web application</b>. В «Authorized JavaScript origins» добавь адрес, с которого открываешь
-            приложение: <code>{location.origin}</code>
-          </li>
-          <li>Скопируй Client ID сюда. На втором устройстве — тот же Client ID и тот же аккаунт Google.</li>
-        </ol>
-      )}
+      {ret?.ok && st.phase === 'idle' && dev.lastSync && <p class="saved">Яндекс Диск подключён ✓</p>}
+      {showHelp && !dev.syncEnabled && (pid === 'yandex' ? <YandexHelp /> : <GoogleHelp />)}
     </section>
+  );
+}
+
+function YandexHelp() {
+  return (
+    <ol class="plain small-text help">
+      <li>
+        Открой <a href="https://oauth.yandex.ru/client/new" target="_blank" rel="noopener noreferrer">oauth.yandex.ru/client/new</a> (войди в
+        свой Яндекс ID).
+      </li>
+      <li>Название — любое, например «Японский с нуля». Платформа — <b>Веб-сервисы</b>.</li>
+      <li>
+        Redirect URI — ровно этот адрес: <code>{yandexRedirectUri()}</code>
+      </li>
+      <li>
+        В доступах найди <b>Яндекс Диск REST API</b> и отметь только <b>«Доступ к папке приложения на Диске»</b>.
+      </li>
+      <li>Почта для связи — твоя. Создай приложение.</li>
+      <li>
+        Скопируй <b>ClientID</b> (не Client secret — он не нужен) и вставь сюда. На телефоне — тот же ClientID; если телефон открывает
+        приложение с другого адреса, добавь в Redirect URI и его.
+      </li>
+    </ol>
+  );
+}
+
+function GoogleHelp() {
+  return (
+    <ol class="plain small-text help">
+      <li>
+        Открой <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">console.cloud.google.com</a> и создай
+        проект.
+      </li>
+      <li>«APIs &amp; Services» → «Library» → <b>Google Drive API</b> → «Enable».</li>
+      <li>
+        «Google Auth Platform»: тип <b>External</b>, режим <b>Testing</b>, свою почту — в <b>Test users</b>.
+      </li>
+      <li>
+        «Clients» → «Create client» → <b>Web application</b>, в «Authorized JavaScript origins» — <code>{location.origin}</code>
+      </li>
+      <li>Скопируй Client ID сюда. На втором устройстве — тот же Client ID и тот же аккаунт Google.</li>
+    </ol>
   );
 }
 

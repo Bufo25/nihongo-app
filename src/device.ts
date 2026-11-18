@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'preact/hooks';
 
 export interface Device {
+  syncProvider: 'yandex' | 'google';
+  yandexClientId: string;
   googleClientId: string;
   syncEnabled: boolean;
   driveFileId: string | null;
@@ -15,6 +17,8 @@ export interface Device {
 const KEY = 'nihongo-device';
 
 const defaults = (): Device => ({
+  syncProvider: 'yandex',
+  yandexClientId: (import.meta.env?.VITE_YANDEX_CLIENT_ID as string | undefined) ?? '',
   googleClientId: (import.meta.env?.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? '',
   syncEnabled: false,
   driveFileId: null,
@@ -27,8 +31,12 @@ const defaults = (): Device => ({
 
 function load(): Device {
   try {
-    const d = { ...defaults(), ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+    const d = { ...defaults(), ...saved };
+    // до появления Яндекса синхронизация была только через Google
+    if (saved.syncEnabled && !saved.syncProvider) d.syncProvider = 'google';
     if (!d.googleClientId) d.googleClientId = defaults().googleClientId;
+    if (!d.yandexClientId) d.yandexClientId = defaults().yandexClientId;
     return d;
   } catch {
     return defaults();

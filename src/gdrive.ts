@@ -1,17 +1,12 @@
 // Google Drive: вход через Google Identity Services и файл в скрытой папке приложения (appDataFolder).
 // Приложение видит только свой файл, а не остальной Диск.
 import { getDevice, setDevice } from './device.ts';
+import { NeedAuthError, step, type Provider, type RemoteFile } from './provider-base.ts';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const FILE_NAME = 'nihongo-data.json';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
-
-export class NeedAuthError extends Error {
-  constructor() {
-    super('Нужно войти в Google заново');
-  }
-}
 
 interface TokenResponse {
   access_token?: string;
@@ -54,13 +49,13 @@ function loadGis(): Promise<GoogleOAuth> {
   return gisLoading;
 }
 
-export function validToken(): string | null {
+function validToken(): string | null {
   const t = getDevice().token;
   return t && t.exp > Date.now() + 60_000 ? t.value : null;
 }
 
 /** Вход в Google. Открывает окно Google — вызывать только по нажатию кнопки. */
-export async function signIn(): Promise<string> {
+async function signIn(): Promise<string> {
   const clientId = getDevice().googleClientId.trim();
   if (!clientId) throw new Error('Сначала вставь Client ID');
   const oauth = await loadGis();
@@ -80,9 +75,8 @@ export async function signIn(): Promise<string> {
   });
 }
 
-export async function signOut(): Promise<void> {
+async function signOut(): Promise<void> {
   const t = getDevice().token?.value;
-  setDevice({ token: null, syncEnabled: false, driveFileId: null, lastSync: null });
   if (t && window.google?.accounts?.oauth2) window.google.accounts.oauth2.revoke(t);
 }
 
@@ -98,14 +92,14 @@ async function api(url: string, init: RequestInit = {}): Promise<Response> {
   return res;
 }
 
-export async function findFile(): Promise<string | null> {
+async function findFile(): Promise<string | null> {
   const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`);
   const res = await api(`${API}/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`);
   const j = (await res.json()) as { files: { id: string }[] };
   return j.files[0]?.id ?? null;
 }
 
-export async function download(id: string): Promise<unknown | null> {
+async function download(id: string): Promise<unknown | null> {
   try {
     const res = await api(`${API}/files/${id}?alt=media`);
     return await res.json();
@@ -115,7 +109,7 @@ export async function download(id: string): Promise<unknown | null> {
   }
 }
 
-export async function upload(id: string | null, data: unknown): Promise<string> {
+async function upload(id: string | null, data: unknown): Promise<string> {
   const body = JSON.stringify(data);
   if (id) {
     await api(`${UPLOAD}/files/${id}?uploadType=media`, {
@@ -137,3 +131,27 @@ export async function upload(id: string | null, data: unknown): Promise<string> 
   });
   return ((await res.json()) as { id: string }).id;
 }
+
+export const googleProvider: Provider = {
+  id: 'google',
+  title: 'Google Drive',
+  ready: () => !!validToken(),
+  signIn: async () => {
+    await signIn();
+  },
+  async read() {
+    let id = getDevice().driveFileId;
+    let data = id ? await step('чтение файла с Google Drive', () => download(id!)) : null;
+    if (!data) {
+      id = await step('поиск файла на Google Drive', findFile);
+      data = id ? await step('чтение файла с Google Drive', () => download(id!)) : null;
+      setDevice({ driveFileId: id });
+    }
+    return data as RemoteFile | null;
+  },
+  async write(f) {
+    const id = await step('запись файла на Google Drive', () => upload(getDevice().driveFileId, f));
+    setDevice({ driveFileId: id });
+  },
+  signOut,
+};

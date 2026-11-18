@@ -4,7 +4,7 @@ import { applySynced, getState, onLocalChange } from './store.ts';
 import { emptyState, type State } from './logic.ts';
 import { merge, syncPayload } from './merge.ts';
 import { getDevice, setDevice } from './device.ts';
-import { NeedAuthError, download, findFile, signIn, upload, validToken } from './gdrive.ts';
+import { NeedAuthError, provider, type RemoteFile } from './providers.ts';
 
 export type SyncPhase = 'off' | 'idle' | 'syncing' | 'need-auth' | 'error';
 
@@ -39,13 +39,6 @@ export function hasUnsynced(): boolean {
   return Object.values(getState().mtime ?? {}).some((t) => t > last);
 }
 
-interface RemoteFile {
-  app: 'nihongo';
-  v: 1;
-  savedAt: number;
-  state: Partial<State>;
-}
-
 let running: Promise<void> | null = null;
 let again = false;
 
@@ -76,22 +69,17 @@ async function run(interactive: boolean): Promise<void> {
     return;
   }
   try {
-    if (!validToken()) {
+    const p = provider();
+    if (!p.ready()) {
       if (!interactive) {
         setStatus({ phase: 'need-auth' });
         return;
       }
-      await signIn();
+      await p.signIn();
     }
     setStatus({ phase: 'syncing' });
     const startedAt = Date.now();
-    let fileId = getDevice().driveFileId;
-    let remote: RemoteFile | null = null;
-    if (fileId) remote = (await download(fileId)) as RemoteFile | null;
-    if (!remote) {
-      fileId = await findFile();
-      remote = fileId ? ((await download(fileId)) as RemoteFile | null) : null;
-    }
+    const remote = await p.read();
 
     // сливаем с тем, что есть локально прямо сейчас (правки во время загрузки не теряются)
     const local = getState();
@@ -107,9 +95,9 @@ async function run(interactive: boolean): Promise<void> {
     const remoteState = remote?.state ? ({ ...emptyState(), ...remote.state } as State) : null;
     if (!remoteState || merge(remoteState, merged).fromRemote > 0) {
       const file: RemoteFile = { app: 'nihongo', v: 1, savedAt: Date.now(), state: payload };
-      fileId = await upload(fileId, file);
+      await p.write(file);
     }
-    setDevice({ driveFileId: fileId, lastSync: startedAt, syncEnabled: true });
+    setDevice({ lastSync: startedAt, syncEnabled: true });
     setStatus({ phase: 'idle' });
   } catch (e) {
     if (e instanceof NeedAuthError) setStatus({ phase: 'need-auth' });
@@ -138,4 +126,24 @@ export function startAutoSync(): void {
   window.addEventListener('online', () => getDevice().syncEnabled && soon(1000));
   setInterval(() => getDevice().syncEnabled && syncNow(false), 5 * 60_000);
   if (getDevice().syncEnabled) soon(800);
+}
+
+/** Отключить синхронизацию на этом устройстве. Данные остаются и здесь, и в облаке. */
+export async function disconnect(): Promise<void> {
+  await provider().signOut();
+  setDevice({ token: null, syncEnabled: false, driveFileId: null, lastSync: null });
+  setStatus({ phase: 'off' });
+}
+
+/** Результат возврата со страницы входа Яндекса — показываем в настройках. */
+let yandexReturn: { ok: boolean; message?: string } | null = null;
+export function setYandexReturn(r: { ok: boolean; message?: string } | null) {
+  yandexReturn = r;
+  if (r?.ok) setStatus({ phase: 'idle' });
+  if (r && !r.ok) setStatus({ phase: getDevice().syncEnabled ? 'error' : 'off', message: r.message });
+}
+export function takeYandexReturn() {
+  const r = yandexReturn;
+  yandexReturn = null;
+  return r;
 }

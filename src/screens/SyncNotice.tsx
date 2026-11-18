@@ -14,7 +14,7 @@ export function SyncNotice() {
         {st.phase === 'need-auth'
           ? hasUnsynced()
             ? 'Есть отметки, которых нет на другом устройстве.'
-            : 'Проверить отметки с другого устройства?'
+            : 'Войди снова, чтобы получить отметки с другого устройства.'
           : st.message}
         {err && <span class="error-text"> {err}</span>}
       </span>
