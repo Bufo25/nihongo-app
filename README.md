@@ -60,7 +60,8 @@ PWA-трекер 3-месячного плана изучения японско
 ```bash
 npm install
 npm run dev        # локальный сервер разработки
-npm test           # тесты логики (серия, недели)
+npm test           # тесты логики (серия, недели, слияние, кана)
+npm run test:e2e   # браузерные тесты (нужна сборка): основной сценарий, синхронизация GitHub и Google
 npm run build      # сборка в dist/
 npm run preview    # проверить сборку с service worker
 ```
@@ -69,4 +70,4 @@ npm run preview    # проверить сборку с service worker
 
 ## Публикация
 
-Для установки на телефон приложение должно открываться по HTTPS. Workflow `.github/workflows/pages.yml` публикует его на GitHub Pages при пуше в `main` (в настройках репозитория: Settings → Pages → Source: GitHub Actions). Подойдёт и любой статический хостинг: достаточно загрузить папку `dist/`.
+Для установки на телефон приложение должно открываться по HTTPS. Workflow `.github/workflows/pages.yml` при пуше в `main` прогоняет тесты (логика и браузерные) и, если всё зелёное, публикует приложение на GitHub Pages (в настройках репозитория: Settings → Pages → Source: GitHub Actions). Подойдёт и любой статический хостинг: достаточно загрузить папку `dist/`.
