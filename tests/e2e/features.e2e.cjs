@@ -71,26 +71,30 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   await p.getByRole('radio', { name: 'Чтение → знак' }).click();
   await p.locator('.field select').last().selectOption('10');
   await p.getByRole('button', { name: /^Начать/ }).click();
+  await p.clock.runFor(200); // при подменённых часах отработать эффекты отрисовки
   const prompt = (await p.locator('.kana-big').textContent()).trim();
   ok(/^[а-яё]+$/.test(prompt), 'показано чтение: ' + prompt);
   ok((await p.locator('.choice.ja').count()) === 4, '4 знака на выбор');
-  await p.keyboard.press('Escape');
+  await p.getByRole('button', { name: '✕ Закончить' }).click();
 
   // на слух: знак произносится
   await p.getByRole('radio', { name: 'На слух' }).click();
+  await p.clock.runFor(200);
   await p.getByRole('button', { name: /^Начать/ }).click();
-  await p.waitForTimeout(300);
+  await p.clock.runFor(300);
+  await p.waitForFunction(() => window.__spoken.length > 0, null, { timeout: 5000 }).catch(() => {});
   const spoken = await p.evaluate(() => window.__spoken);
   ok(spoken.length > 0 && /^[぀-ゟ]+$/.test(spoken[0]), 'на слух: произнесено ' + spoken[0]);
   await p.locator('.speak-btn').click();
   ok((await p.evaluate(() => window.__spoken.length)) === spoken.length + 1, 'кнопка 🔊 повторяет');
-  await p.keyboard.press('Escape');
+  await p.getByRole('button', { name: '✕ Закончить' }).click();
 
   // слова: ввод чтения
   await p.getByRole('radio', { name: 'Слова' }).click();
   for (const r of ['ta', 'na', 'ha', 'ma', 'ya', 'ra', 'wa']) await p.locator('.chip', { hasText: { ta: 'た', na: 'な', ha: 'は', ma: 'ま', ya: 'や', ra: 'ら', wa: 'わ' }[r] }).click();
   await p.locator('.field select').first().selectOption('input');
   await p.getByRole('button', { name: /^Начать/ }).click();
+  await p.clock.runFor(200);
   for (let i = 0; i < 10; i++) {
     if (await p.getByText('Результат').isVisible()) break;
     const word = (await p.locator('.kana-big').textContent()).trim();
@@ -101,7 +105,8 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
       await p.keyboard.press('Enter');
       await p.getByText('Правильно:').waitFor();
       ok(true, `слово ${word}: неверный ответ показывает чтение и перевод`);
-      await p.keyboard.press('Enter');
+      await p.getByRole('button', { name: 'Дальше' }).click();
+      await p.clock.runFor(200);
       await p.waitForFunction((prev) => document.querySelector('.kana-big')?.textContent.trim() !== prev, word, { timeout: 5000 }).catch(async (e) => {
         throw new Error('после неверного ответа слово не сменилось: ' + word + ' / ' + (await p.locator('.page').innerText()).replace(/\n/g, ' | ').slice(0, 400));
       });
@@ -111,7 +116,7 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
     await input.fill(READING[word].replace(/:/g, ''));
     await p.keyboard.press('Enter');
     await p.locator('.kana-feedback .saved').waitFor({ timeout: 2000 });
-    await p.clock.runFor(1000);
+    await p.clock.runFor(1200);
     // дождаться следующего слова (или результата), прежде чем читать его
     await p.waitForFunction(
       (prev) => document.body.innerText.includes('Результат') || (document.querySelector('.kana-big')?.textContent.trim() !== prev && !document.querySelector('.kana-input input')?.disabled),

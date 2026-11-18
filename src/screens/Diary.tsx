@@ -1,16 +1,21 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { update } from '../store.ts';
 import { fmtDay, lessonsOfWeek, planWeekOf, ruleWeek, type State } from '../logic.ts';
 import { diaryPromptsUpTo } from '../plan.ts';
 import { Header } from '../ui.tsx';
 
 export function Diary({ s, today }: { s: State; today: string }) {
-  const [editing, setEditing] = useState(today);
+  const [editing, setEditingRaw] = useState(today);
   const saved = s.diary[editing] ?? '';
   const [text, setText] = useState(saved);
+  // текст подгружаем в момент выбора другого дня — не эффектом после отрисовки,
+  // иначе он мог затереть то, что уже начали печатать
+  const setEditing = (k: string) => {
+    setEditingRaw(k);
+    setText(s.diary[k] ?? '');
+  };
   const [flash, setFlash] = useState(false);
 
-  useEffect(() => setText(s.diary[editing] ?? ''), [editing]);
 
   const save = () => {
     const t = text.trim();

@@ -306,8 +306,6 @@ function Session({
   }, []);
 
   useEffect(() => {
-    shownAt.current = performance.now();
-    setInput('');
     inputRef.current?.focus();
     if (q.kind === 'audio') findJapaneseVoice().then((v) => v && speak(q.say!));
   }, [q]);
@@ -317,7 +315,13 @@ function Session({
     if (all.length >= total) {
       finish(all);
       onDone(all);
-    } else setEntry(pickNext(entries, { ...s.kana }, entry.key));
+      return;
+    }
+    // очищаем поле и засекаем время сразу при смене вопроса, а не в эффекте после отрисовки —
+    // иначе быстро набранные первые буквы могли стереться
+    setInput('');
+    shownAt.current = performance.now();
+    setEntry(pickNext(entries, { ...s.kana }, entry.key));
   };
 
   const finish = (all: Answer[]) => {

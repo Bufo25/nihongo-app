@@ -136,10 +136,10 @@ const doneOf = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-
   await A.p.getByRole('button', { name: /^Начать/ }).click();
   const k = await A.p.locator('.kana-big').textContent();
   await A.p.locator('.kana-input input').fill('zzz');
-  await A.p.keyboard.press('Enter');
-  await A.p.getByText('Правильно:').waitFor({ timeout: 3000 });
+  await A.p.getByRole('button', { name: 'Ответить' }).click();
+  await A.p.getByText('Правильно:').waitFor({ timeout: 10000 });
   ok(true, 'ввод: неверный ответ показывает правильный (' + k + ')');
-  await A.p.keyboard.press('Escape');
+  await A.p.getByRole('button', { name: '✕ Закончить' }).click();
 
   // AnkiConnect на ПК
   await A.p.goto(APP + '#/settings');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { update } from '../store.ts';
 import { activeBlocks, addDays, countInWeek, dayStatus, fmtRange, isWeekend, mondayOf, planWeekOf, ruleWeek, type Review, type State } from '../logic.ts';
 import { Header } from '../ui.tsx';
@@ -9,15 +9,16 @@ const QUESTIONS: { k: 'good' | 'missed' | 'change'; q: string; ph: string }[] = 
   { k: 'change', q: 'Что поменять на следующей неделе?', ph: 'Одно маленькое изменение' },
 ];
 
+/** Новая неделя — новый черновик: форма пересоздаётся по ключу, без эффекта, который мог затереть набранное. */
 export function ReviewScreen({ s, today }: { s: State; today: string }) {
+  return <ReviewBody key={mondayOf(today)} s={s} today={today} />;
+}
+
+function ReviewBody({ s, today }: { s: State; today: string }) {
   const mon = mondayOf(today);
   const saved = s.reviews[mon];
   const [draft, setDraft] = useState({ good: saved?.good ?? '', missed: saved?.missed ?? '', change: saved?.change ?? '' });
   const [flash, setFlash] = useState(false);
-
-  useEffect(() => {
-    setDraft({ good: saved?.good ?? '', missed: saved?.missed ?? '', change: saved?.change ?? '' });
-  }, [mon]);
 
   const dirty = QUESTIONS.some((q) => draft[q.k] !== (saved?.[q.k] ?? ''));
   const empty = QUESTIONS.every((q) => !draft[q.k].trim());
