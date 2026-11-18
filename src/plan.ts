@@ -164,3 +164,68 @@ export const RESOURCES: ResourceGroup[] = [
     ],
   },
 ];
+
+/** Какие ресурсы из списка нужны на неделе (по названию из RESOURCES). */
+export const WEEK_RESOURCES: Record<number, string[]> = {
+  1: ['NHK World «Простой японский»', 'kana.pro'],
+  2: ['NHK World «Простой японский»', 'kana.pro', 'Wagotabi', 'Anki', 'KaishiRu'],
+  3: ['NHK World «Простой японский»', 'KaishiRu'],
+  4: ['kana.pro', 'Hololive'],
+  5: ['lingust.ru'],
+  6: ['lingust.ru'],
+  7: ['Yomitan + JMdict (Russian)', 'Вародай'],
+  8: ['asbplayer', 'Jimaku', 'Language Reactor'],
+  9: ['Tadoku'],
+  10: ['Nihongo con Teppei'],
+  11: ['Hololive', 'Language Reactor'],
+  12: ['NHK News Web Easy'],
+};
+
+export function weekResources(week: number): Resource[] {
+  const all = RESOURCES.flatMap((g) => g.items);
+  return (WEEK_RESOURCES[week] ?? []).map((n) => all.find((r) => r.name === n)).filter((r): r is Resource => !!r?.url);
+}
+
+export interface DiaryPrompt {
+  lesson: number; // 0 — до учебника
+  topic: string; // о чём написать
+  pattern: string; // конструкция урока
+  example: string; // образец
+}
+
+/** Подсказки для дневника по урокам Minna no Nihongo I. */
+export const DIARY_PROMPTS: DiaryPrompt[] = [
+  { lesson: 0, topic: 'Что ты сегодня делал?', pattern: '〜を みました', example: 'きょうは アニメを みました。' },
+  { lesson: 0, topic: 'Что тебе нравится?', pattern: '〜が すきです', example: 'わたしは ねこが すきです。' },
+  { lesson: 1, topic: 'Представься: кто ты и откуда', pattern: 'わたしは 〜です', example: 'わたしは ロシアじんです。がくせいです。' },
+  { lesson: 1, topic: 'Кем ты не являешься?', pattern: '〜じゃ ありません', example: 'わたしは せんせいじゃ ありません。' },
+  { lesson: 2, topic: 'Опиши вещь рядом с тобой', pattern: 'これは 〜の 〜です', example: 'これは わたしの ほんです。' },
+  { lesson: 3, topic: 'Где что находится у тебя дома?', pattern: '〜は ここ／そこ／あそこです', example: 'トイレは あそこです。' },
+  { lesson: 3, topic: 'Сколько стоила вещь?', pattern: '〜は 〜えんです', example: 'この コーヒーは 300えんでした。' },
+  { lesson: 4, topic: 'Во сколько ты встал и лёг?', pattern: '〜じに おきます', example: 'けさ 7じに おきました。' },
+  { lesson: 4, topic: 'С какого по какое время ты занимался?', pattern: '〜から 〜まで', example: '9じから 5じまで はたらきました。' },
+  { lesson: 5, topic: 'Куда ты ходил и с кем?', pattern: '〜へ いきます／〜と', example: 'きのう ともだちと スーパーへ いきました。' },
+  { lesson: 5, topic: 'На чём ты ездил?', pattern: '〜で いきます', example: 'でんしゃで かいしゃへ いきました。' },
+  { lesson: 6, topic: 'Что ты ел и пил?', pattern: '〜を たべます', example: 'あさ パンを たべました。' },
+  { lesson: 6, topic: 'Где ты что делал?', pattern: '〜で 〜を します', example: 'うちで にほんごを べんきょうしました。' },
+  { lesson: 6, topic: 'Пригласи кого-нибудь', pattern: '〜ませんか', example: 'いっしょに ゲームを しませんか。' },
+  { lesson: 7, topic: 'Что ты кому подарил или получил?', pattern: '〜に あげます／もらいます', example: 'ともだちに ほんを あげました。' },
+  { lesson: 7, topic: 'Что уже сделал?', pattern: 'もう 〜ました', example: 'もう しゅくだいを しました。' },
+  { lesson: 8, topic: 'Опиши что-нибудь прилагательным', pattern: '〜は 〜い／〜な です', example: 'きょうは さむいです。まちは しずかです。' },
+  { lesson: 9, topic: 'Что ты любишь и что умеешь?', pattern: '〜が すきです／じょうずです', example: 'わたしは アニメが すきです。りょうりが へたです。' },
+  { lesson: 9, topic: 'Почему?', pattern: '〜から', example: 'じかんが ありませんから、ゲームを しませんでした。' },
+  { lesson: 10, topic: 'Что где находится?', pattern: '〜に 〜が あります／います', example: 'へやに ねこが います。' },
+  { lesson: 11, topic: 'Посчитай что-нибудь', pattern: '〜つ／〜まい／〜にん', example: 'りんごを みっつ かいました。' },
+  { lesson: 11, topic: 'Сколько времени ты потратил?', pattern: '〜じかん', example: 'にほんごを いちじかん べんきょうしました。' },
+  { lesson: 12, topic: 'Каким был вчерашний день?', pattern: '〜かったです／〜でした', example: 'きのうは たのしかったです。' },
+  { lesson: 12, topic: 'Сравни две вещи', pattern: '〜は 〜より 〜です', example: 'ねこは いぬより かわいいです。' },
+  { lesson: 13, topic: 'Чего тебе хочется?', pattern: '〜が ほしいです／〜たいです', example: 'あたらしい パソコンが ほしいです。にほんへ いきたいです。' },
+  { lesson: 13, topic: 'Зачем ты куда-то ходил?', pattern: '〜に いきます', example: 'コンビニへ パンを かいに いきました。' },
+  { lesson: 14, topic: 'Что ты сейчас делаешь?', pattern: '〜て います', example: 'いま おんがくを きいて います。' },
+  { lesson: 14, topic: 'Попроси о чём-нибудь', pattern: '〜て ください', example: 'ゆっくり はなして ください。' },
+];
+
+/** Подсказки, которые уже по силам: из пройденных уроков (и урока в процессе). */
+export function diaryPromptsUpTo(lesson: number): DiaryPrompt[] {
+  return DIARY_PROMPTS.filter((p) => p.lesson <= lesson);
+}

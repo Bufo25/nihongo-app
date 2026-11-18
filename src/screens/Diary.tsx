@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { update } from '../store.ts';
-import { fmtDay, planWeekOf, type State } from '../logic.ts';
+import { fmtDay, lessonsOfWeek, planWeekOf, ruleWeek, type State } from '../logic.ts';
+import { diaryPromptsUpTo } from '../plan.ts';
 import { Header } from '../ui.tsx';
 
 export function Diary({ s, today }: { s: State; today: string }) {
@@ -36,6 +37,8 @@ export function Diary({ s, today }: { s: State; today: string }) {
           По плану дневник начинается с месяца 3 (неделя 9). Писать раньше тоже можно — в чек-лист он попадёт с недели 9.
         </div>
       )}
+
+      <Prompt s={s} today={today} onUse={(t) => setText(text ? `${text}\n${t}` : t)} />
 
       <section class="card">
         <label class="field">
@@ -82,5 +85,44 @@ export function Diary({ s, today }: { s: State; today: string }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Номер урока для подсказок: самый дальний пройденный или «в процессе», иначе по плану недели. */
+function currentLesson(s: State, today: string): number {
+  const marked = Object.keys(s.lessons).map(Number);
+  const byPlan = Math.max(0, ...lessonsOfWeek(ruleWeek(s, today)));
+  return Math.max(0, byPlan, ...marked);
+}
+
+function Prompt({ s, today, onUse }: { s: State; today: string; onUse: (t: string) => void }) {
+  const lesson = currentLesson(s, today);
+  const prompts = diaryPromptsUpTo(lesson);
+  // свежие уроки — в начале, чтобы чаще тренировать новое
+  const ordered = [...prompts].reverse();
+  const [i, setI] = useState(() => Number(today.slice(8)) % Math.min(ordered.length, 3));
+  const p = ordered[i % ordered.length];
+  return (
+    <section class="card soft prompt-card">
+      <div class="card-head">
+        <span class="eyebrow">{p.lesson ? `Подсказка · урок ${p.lesson}` : 'Подсказка'}</span>
+        <button class="linklike small-text" onClick={() => setI(i + 1)}>
+          другая
+        </button>
+      </div>
+      <p class="prompt-topic">{p.topic}</p>
+      <p class="small-text">
+        <span class="muted">Конструкция: </span>
+        <span lang="ja" class="ja">
+          {p.pattern}
+        </span>
+      </p>
+      <p class="prompt-example ja" lang="ja">
+        {p.example}
+      </p>
+      <button class="linklike small-text" onClick={() => onUse(p.example)}>
+        вставить образец и переделать под себя
+      </button>
+    </section>
   );
 }

@@ -137,7 +137,8 @@ const doneOf = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-
   const k = await A.p.locator('.kana-big').textContent();
   await A.p.locator('.kana-input input').fill('zzz');
   await A.p.keyboard.press('Enter');
-  ok(await A.p.getByText('Правильно:').isVisible(), 'ввод: неверный ответ показывает правильный (' + k + ')');
+  await A.p.getByText('Правильно:').waitFor({ timeout: 3000 });
+  ok(true, 'ввод: неверный ответ показывает правильный (' + k + ')');
   await A.p.keyboard.press('Escape');
 
   // AnkiConnect на ПК

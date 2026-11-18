@@ -7,7 +7,9 @@ const TOKEN = 'github_pat_test';
 let file = null; // { sha, content(base64) }
 let shaN = 0, puts = 0, conflictOnce = false, isPrivate = true;
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
-const json = (r, status, body) => r.fulfill({ status, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) });
+let expiry = null; // 'YYYY-MM-DD' — что GitHub сообщит о сроке токена
+const json = (r, status, body) =>
+  r.fulfill({ status, headers: { ...CORS, ...(expiry ? { 'github-authentication-token-expiration': `${expiry} 12:00:00 UTC`, 'access-control-expose-headers': 'github-authentication-token-expiration' } : {}) }, contentType: 'application/json', body: JSON.stringify(body) });
 
 async function github(r) {
   const req = r.request();
@@ -102,6 +104,17 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   const r = remote();
   const today = Object.keys(sa.days).sort().pop();
   ok(r.state.days[today].done.wagotabi, 'конфликт версий: перечитал, слил и записал');
+
+  // срок токена: GitHub сообщил дату → за 2 недели предупреждение на «Сегодня»
+  const soon = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+  expiry = soon;
+  await A.p.goto(APP + '#/');
+  await A.p.reload();
+  await A.p.getByText(/Токен GitHub для синхронизации истекает через 10 дней/).waitFor({ timeout: 5000 });
+  ok(true, 'срок токена: предупреждение за 10 дней');
+  await A.p.goto(APP + '#/settings');
+  ok((await A.p.locator('.token-exp input').inputValue()) === soon, 'срок токена виден в настройках');
+  expiry = null;
 
   // отключение удаляет токен с устройства
   await A.p.goto(APP + '#/settings');

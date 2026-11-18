@@ -47,3 +47,17 @@ test('коробки Лейтнера', () => {
   s = applyAnswer(s, false);
   assert.deepEqual(s, { box: 0, ok: 2, bad: 1 });
 });
+
+import { kanaChoicesFor } from '../src/kana.ts';
+
+test('выбор знака: 4 разных, без одинаково звучащих', () => {
+  const pool = itemsFor('hira', ['za', 'da']);
+  for (const it of pool) {
+    const c = kanaChoicesFor(it, pool, 'hira');
+    assert.equal(c.length, 4);
+    assert.equal(new Set(c).size, 4);
+    assert.ok(c.includes(it.kana));
+    const readings = c.map((k) => pool.concat(itemsFor('hira', ['a', 'ka'])).find((i) => i.kana === k)?.cyr);
+    assert.equal(new Set(readings).size, 4, c.join(' '));
+  }
+});

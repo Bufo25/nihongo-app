@@ -5,6 +5,7 @@ export interface Device {
   syncProvider: 'github' | 'google';
   githubRepo: string; // «логин/репозиторий»
   githubToken: string;
+  githubTokenExp: string | null; // YYYY-MM-DD — до какого дня действует токен
   googleClientId: string;
   syncEnabled: boolean;
   driveFileId: string | null;
@@ -21,6 +22,7 @@ const defaults = (): Device => ({
   syncProvider: 'github',
   githubRepo: '',
   githubToken: '',
+  githubTokenExp: null,
   googleClientId: (import.meta.env?.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? '',
   syncEnabled: false,
   driveFileId: null,

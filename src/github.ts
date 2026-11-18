@@ -19,6 +19,14 @@ function headers(): Record<string, string> {
   };
 }
 
+/** GitHub сообщает срок токена в заголовке ответа — если браузеру разрешено его прочитать, запоминаем. */
+function noteExpiry(res: Response): Response {
+  const h = res.headers.get('github-authentication-token-expiration');
+  const day = h?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  if (day && day !== getDevice().githubTokenExp) setDevice({ githubTokenExp: day });
+  return res;
+}
+
 function url(): string {
   return `https://api.github.com/repos/${repo()}/contents/${FILE}`;
 }
@@ -49,7 +57,7 @@ function fromBase64(b64: string): string {
 
 async function checkRepo(): Promise<void> {
   const res = await step('проверить репозиторий на GitHub', () =>
-    fetch(`https://api.github.com/repos/${repo()}`, { headers: headers(), cache: 'no-store' }),
+    fetch(`https://api.github.com/repos/${repo()}`, { headers: headers(), cache: 'no-store' }).then(noteExpiry),
   );
   if (!res.ok) throw explain(res.status);
   const j = (await res.json()) as { private: boolean };
@@ -57,7 +65,7 @@ async function checkRepo(): Promise<void> {
 }
 
 async function read(): Promise<RemoteFile | null> {
-  const res = await step('прочитать файл с GitHub', () => fetch(url(), { headers: headers(), cache: 'no-store' }));
+  const res = await step('прочитать файл с GitHub', () => fetch(url(), { headers: headers(), cache: 'no-store' }).then(noteExpiry));
   if (res.status === 404) {
     // файла ещё нет — но, может, нет и доступа к репозиторию: проверим, чтобы ошибка была понятной
     await checkRepo();
@@ -106,6 +114,14 @@ export const githubProvider: Provider = {
   write,
   signOut: async () => {
     sha = null;
-    setDevice({ githubToken: '' });
+    setDevice({ githubToken: '', githubTokenExp: null });
   },
 };
+
+/** Сколько дней осталось до конца срока токена (null — срок неизвестен). */
+export function tokenDaysLeft(today = new Date()): number | null {
+  const exp = getDevice().githubTokenExp;
+  if (!exp) return null;
+  const [y, m, d] = exp.split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+}

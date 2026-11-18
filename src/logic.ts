@@ -25,12 +25,20 @@ export interface State {
   reminder: { enabled: boolean; time: string }; // не синхронизируется: у каждого устройства своё
   lessons: Record<string, LessonState>; // уроки Minna: "1".."14"
   words: Record<string, number>; // сколько слов в Anki на дату
-  kana: Record<string, KanaStat>; // статистика тренажёра по знакам
+  kana: Record<string, KanaStat>; // статистика тренажёра по знакам (и словам: "w:слово")
+  kanaLog: Record<string, KanaDay>; // занятия тренажёром по дням
+  minutes: Record<string, Partial<Record<BlockId, number>>>; // минуты по блокам за день (таймер)
   mtime: Record<string, number>; // когда менялся каждый элемент — для слияния при синхронизации
 }
 
 /** 1 — в процессе, 2 — пройден */
 export type LessonState = 1 | 2;
+
+export interface KanaDay {
+  n: number; // ответов
+  ok: number; // верных
+  ms: number; // общее время на ответы
+}
 
 export interface KanaStat {
   box: number; // 0..5 — насколько хорошо знаю (коробки Лейтнера)
@@ -52,6 +60,8 @@ export function emptyState(): State {
     lessons: {},
     words: {},
     kana: {},
+    kanaLog: {},
+    minutes: {},
     mtime: {},
   };
 }

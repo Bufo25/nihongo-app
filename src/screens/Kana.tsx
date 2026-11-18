@@ -2,10 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { update } from '../store.ts';
 import { dailyBlocks, ruleWeek, type State } from '../logic.ts';
 import {
-  MASTERED, ROWS, applyAnswer, choicesFor, isCorrect, itemsFor, pickNext, toKata,
+  MASTERED, ROWS, SAME_SOUND, applyAnswer, choicesFor, isCorrect, itemsFor, kanaChoicesFor, pickNext, toKata,
   type KanaItem, type Reading, type Script,
 } from '../kana.ts';
+import { isWordCorrect, wordItems, type WordItem } from '../kana-words.ts';
+import { VOICE_HELP, findJapaneseVoice, speak } from '../speech.ts';
+import { timerBlock } from '../timer.ts';
 import { Header } from '../ui.tsx';
+
+/** read — знак → чтение; reverse — чтение → знак; audio — на слух → знак; words — слово → чтение */
+type Drill = 'read' | 'reverse' | 'audio' | 'words';
 
 interface Prefs {
   script: Script;
@@ -13,12 +19,20 @@ interface Prefs {
   mode: 'choice' | 'input';
   reading: Reading;
   length: number;
+  drill: Drill;
 }
+
+const DRILLS: { id: Drill; title: string; hint: string }[] = [
+  { id: 'read', title: 'Знак → чтение', hint: 'Видишь знак — называешь чтение' },
+  { id: 'reverse', title: 'Чтение → знак', hint: 'Видишь чтение — находишь знак' },
+  { id: 'audio', title: 'На слух', hint: 'Слышишь слог — находишь знак' },
+  { id: 'words', title: 'Слова', hint: 'Читаешь короткие слова целиком — на скорость' },
+];
 
 const PREFS_KEY = 'nihongo-kana-prefs';
 
 function loadPrefs(week: number): Prefs {
-  const d: Prefs = { script: week === 3 ? 'kata' : 'hira', rows: ['a', 'ka', 'sa'], mode: 'choice', reading: 'cyr', length: 20 };
+  const d: Prefs = { script: week === 3 ? 'kata' : 'hira', rows: ['a', 'ka', 'sa'], mode: 'choice', reading: 'cyr', length: 20, drill: week === 4 ? 'words' : 'read' };
   try {
     return { ...d, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
   } catch {
@@ -34,11 +48,70 @@ function savePrefs(p: Prefs) {
   }
 }
 
+type Entry = KanaItem | WordItem;
+const isWord = (e: Entry): e is WordItem => 'word' in e;
+
+/** Вопрос в любом режиме. */
+interface Q {
+  key: string;
+  kind: 'kana' | 'reading' | 'audio' | 'word';
+  prompt: string;
+  right: string;
+  choices: string[] | null; // null — ввод с клавиатуры
+  choicesAreKana: boolean;
+  check: (a: string) => boolean;
+  reveal: string;
+  meaning?: string;
+  say?: string; // что произнести
+  label: string; // как показать в списке ошибок
+}
+
+function makeQ(e: Entry, pool: Entry[], p: Prefs): Q {
+  const label = (x: { cyr: string; lat: string }) => (p.reading === 'cyr' ? x.cyr : x.lat);
+  if (isWord(e)) {
+    const right = label(e);
+    let choices: string[] | null = null;
+    if (p.mode === 'choice') {
+      const others = [...new Set((pool as WordItem[]).filter((w) => w.key !== e.key).map(label))].filter((l) => l !== right);
+      const picked: string[] = [];
+      while (picked.length < 3 && others.length) picked.push(others.splice(Math.floor(Math.random() * others.length), 1)[0]);
+      choices = [right, ...picked].sort(() => Math.random() - 0.5);
+    }
+    return {
+      key: e.key, kind: 'word', prompt: e.word, right, choices, choicesAreKana: false,
+      check: (a) => (choices ? a === right : isWordCorrect(e, a)),
+      reveal: `${right} · ${p.reading === 'cyr' ? e.lat : e.cyr}`, meaning: e.meaning, say: e.word, label: e.word,
+    };
+  }
+  const items = pool as KanaItem[];
+  if (p.drill === 'reverse' || p.drill === 'audio') {
+    const src = p.drill === 'audio' ? items.filter((i) => !SAME_SOUND.has(i.kana)) : items;
+    return {
+      key: e.key, kind: p.drill === 'audio' ? 'audio' : 'reading', prompt: label(e), right: e.kana,
+      choices: kanaChoicesFor(e, src, p.script), choicesAreKana: true, check: (a) => a === e.kana,
+      reveal: `${e.kana} — ${e.cyr} · ${e.lat}`, say: e.kana, label: e.kana,
+    };
+  }
+  const right = label(e);
+  const choices = p.mode === 'choice' ? choicesFor(e, items, p.reading) : null;
+  return {
+    key: e.key, kind: 'kana', prompt: e.kana, right, choices, choicesAreKana: false,
+    check: (a) => (choices ? a === right : isCorrect(e, a)),
+    reveal: `${right} · ${p.reading === 'cyr' ? e.lat : e.cyr}`, say: e.kana, label: e.kana,
+  };
+}
+
+function entriesFor(p: Prefs): Entry[] {
+  if (p.drill === 'words') return wordItems(p.script, p.rows);
+  const items = itemsFor(p.script, p.rows);
+  return p.drill === 'audio' ? items.filter((i) => !SAME_SOUND.has(i.kana)) : items;
+}
+
 interface Answer {
-  item: KanaItem;
+  key: string;
+  label: string;
   ok: boolean;
   ms: number;
-  given: string;
 }
 
 export function Kana({ s, today }: { s: State; today: string }) {
@@ -49,14 +122,15 @@ export function Kana({ s, today }: { s: State; today: string }) {
     setPrefsRaw(n);
     savePrefs(n);
   };
-  const [session, setSession] = useState<{ items: KanaItem[] } | null>(null);
+  const [session, setSession] = useState<{ entries: Entry[] } | null>(null);
   const [result, setResult] = useState<Answer[] | null>(null);
 
   if (session) {
     return (
       <Session
         s={s}
-        items={session.items}
+        today={today}
+        entries={session.entries}
         prefs={prefs}
         onDone={(a) => {
           setSession(null);
@@ -67,9 +141,9 @@ export function Kana({ s, today }: { s: State; today: string }) {
     );
   }
 
-  const start = (items: KanaItem[]) => {
+  const start = (entries: Entry[]) => {
     setResult(null);
-    setSession({ items });
+    setSession({ entries });
   };
 
   return (
@@ -81,20 +155,24 @@ export function Kana({ s, today }: { s: State; today: string }) {
           s={s}
           today={today}
           canMark={dailyBlocks(w).includes('kana')}
-          onAgain={() => start(itemsFor(prefs.script, prefs.rows))}
+          onAgain={() => start(entriesFor(prefs))}
           onErrors={() => {
-            const bad = [...new Map(result.filter((a) => !a.ok).map((a) => [a.item.key, a.item])).values()];
-            start(bad);
+            const bad = new Set(result.filter((a) => !a.ok).map((a) => a.key));
+            start(entriesFor(prefs).filter((e) => bad.has(e.key)));
           }}
         />
       )}
-      <Setup prefs={prefs} setPrefs={setPrefs} s={s} onStart={() => start(itemsFor(prefs.script, prefs.rows))} />
+      <Setup prefs={prefs} setPrefs={setPrefs} s={s} onStart={() => start(entriesFor(prefs))} />
       <Table s={s} script={prefs.script} reading={prefs.reading} />
     </div>
   );
 }
 
 function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Partial<Prefs>) => void; s: State; onStart: () => void }) {
+  const [voice, setVoice] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (prefs.drill === 'audio') findJapaneseVoice().then((v) => setVoice(!!v));
+  }, [prefs.drill]);
   const toggleRow = (id: string) =>
     setPrefs({ rows: prefs.rows.includes(id) ? prefs.rows.filter((r) => r !== id) : [...prefs.rows, id] });
   const groups: { g: 'basic' | 'dakuten' | 'yoon'; t: string }[] = [
@@ -103,7 +181,10 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
     { g: 'yoon', t: 'Сочетания (ゃゅょ)' },
   ];
   const weak = itemsFor(prefs.script, ROWS.map((r) => r.id)).filter((i) => s.kana[i.key] && s.kana[i.key].box < MASTERED && s.kana[i.key].bad > 0);
-  const count = itemsFor(prefs.script, prefs.rows).length;
+  const count = entriesFor(prefs).length;
+  const hasMode = prefs.drill === 'read' || prefs.drill === 'words';
+  const blocked = count === 0 || (prefs.drill === 'audio' && voice === false);
+  const drill = DRILLS.find((d) => d.id === prefs.drill)!;
   return (
     <section class="card">
       <div class="seg">
@@ -114,6 +195,14 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
           Катакана
         </button>
       </div>
+      <div class="drills" role="radiogroup" aria-label="Режим">
+        {DRILLS.map((d) => (
+          <button role="radio" aria-checked={prefs.drill === d.id} class={`drill ${prefs.drill === d.id ? 'on' : ''}`} onClick={() => setPrefs({ drill: d.id })}>
+            {d.title}
+          </button>
+        ))}
+      </div>
+      <p class="muted small-text">{drill.hint}{prefs.drill === 'words' && ' — из выбранных рядов.'}</p>
       {groups.map(({ g, t }) => (
         <div class="row-group">
           <div class="row-group-head">
@@ -143,13 +232,15 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
         </div>
       ))}
       <div class="settings-grid">
-        <label class="field">
-          <span>Как отвечать</span>
-          <select value={prefs.mode} onChange={(e) => setPrefs({ mode: (e.target as HTMLSelectElement).value as Prefs['mode'] })}>
-            <option value="choice">Выбрать из 4</option>
-            <option value="input">Набрать чтение</option>
-          </select>
-        </label>
+        {hasMode && (
+          <label class="field">
+            <span>Как отвечать</span>
+            <select value={prefs.mode} onChange={(e) => setPrefs({ mode: (e.target as HTMLSelectElement).value as Prefs['mode'] })}>
+              <option value="choice">Выбрать из 4</option>
+              <option value="input">Набрать чтение</option>
+            </select>
+          </label>
+        )}
         <label class="field">
           <span>Чтение</span>
           <select value={prefs.reading} onChange={(e) => setPrefs({ reading: (e.target as HTMLSelectElement).value as Reading })}>
@@ -166,12 +257,15 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
           </select>
         </label>
       </div>
-      {prefs.mode === 'input' && (
-        <p class="muted small-text">Можно набирать и кириллицей (Поливанов), и латиницей (Хэпбёрн) — засчитается любой вариант.</p>
+      {hasMode && prefs.mode === 'input' && (
+        <p class="muted small-text">
+          Можно набирать и кириллицей (Поливанов), и латиницей (Хэпбёрн).{prefs.drill === 'words' && ' Долгие гласные можно писать как угодно: гакко:, гакко, gakkou.'}
+        </p>
       )}
+      {prefs.drill === 'audio' && voice === false && <div class="banner">{VOICE_HELP}</div>}
       <div class="row">
-        <button class="btn primary" disabled={count === 0} onClick={onStart}>
-          Начать · {count} {count === 1 ? 'знак' : 'знаков'}
+        <button class="btn primary" disabled={blocked} onClick={onStart}>
+          Начать · {count} {prefs.drill === 'words' ? (count === 1 ? 'слово' : 'слов') : count === 1 ? 'знак' : 'знаков'}
         </button>
         {weak.length > 0 && (
           <button class="btn" onClick={() => setPrefs({ rows: [...new Set(weak.map((i) => i.row))] })}>
@@ -180,64 +274,99 @@ function Setup({ prefs, setPrefs, s, onStart }: { prefs: Prefs; setPrefs: (p: Pa
         )}
       </div>
       {prefs.rows.length === 0 && <p class="muted small-text">Выбери хотя бы один ряд.</p>}
+      {prefs.drill === 'words' && count === 0 && prefs.rows.length > 0 && (
+        <p class="muted small-text">Из этих рядов слов не набирается — добавь ещё ряды.</p>
+      )}
     </section>
   );
 }
 
 function Session({
-  s, items, prefs, onDone, onQuit,
+  s, today, entries, prefs, onDone, onQuit,
 }: {
   s: State;
-  items: KanaItem[];
+  today: string;
+  entries: Entry[];
   prefs: Prefs;
   onDone: (a: Answer[]) => void;
   onQuit: () => void;
 }) {
   const [answers, setAnswers] = useState<Answer[]>([]);
-  const [item, setItem] = useState<KanaItem>(() => pickNext(items, s.kana));
+  const [entry, setEntry] = useState<Entry>(() => pickNext(entries, s.kana));
   const [feedback, setFeedback] = useState<{ ok: boolean; given: string } | null>(null);
   const [input, setInput] = useState('');
+  const [voice, setVoice] = useState(false);
   const shownAt = useRef(performance.now());
   const inputRef = useRef<HTMLInputElement>(null);
-  const choices = useMemo(() => choicesFor(item, items, prefs.reading), [item]);
-  const right = prefs.reading === 'cyr' ? item.cyr : item.lat;
+  const q = useMemo(() => makeQ(entry, entries, prefs), [entry]);
   const total = prefs.length;
+
+  useEffect(() => {
+    findJapaneseVoice().then((v) => setVoice(!!v));
+  }, []);
 
   useEffect(() => {
     shownAt.current = performance.now();
     setInput('');
     inputRef.current?.focus();
-  }, [item]);
+    if (q.kind === 'audio') findJapaneseVoice().then((v) => v && speak(q.say!));
+  }, [q]);
 
   const next = (all: Answer[]) => {
     setFeedback(null);
-    if (all.length >= total) onDone(all);
-    else setItem(pickNext(items, { ...s.kana }, item.key));
+    if (all.length >= total) {
+      finish(all);
+      onDone(all);
+    } else setEntry(pickNext(entries, { ...s.kana }, entry.key));
   };
 
-  const answer = (given: string, ok: boolean) => {
+  const finish = (all: Answer[]) => {
+    // время в тренажёре — в минуты блока «Кана», если не идёт таймер этого блока (чтобы не считать дважды)
+    const min = Math.round(all.reduce((a, b) => a + b.ms, 0) / 60000);
+    if (min > 0 && timerBlock() !== 'kana') {
+      update((st) => {
+        const m = (st.minutes[today] ??= {});
+        m.kana = (m.kana ?? 0) + min;
+      });
+    }
+  };
+
+  const answer = (given: string) => {
     if (feedback) return;
-    const a: Answer = { item, ok, given, ms: performance.now() - shownAt.current };
-    const all = [...answers, a];
+    const ok = q.check(given);
+    const ms = Math.min(performance.now() - shownAt.current, 20_000); // отвлёкся — не считаем как медленный ответ
+    const all = [...answers, { key: q.key, label: q.label, ok, ms }];
     setAnswers(all);
     setFeedback({ ok, given });
-    update((st) => (st.kana[item.key] = applyAnswer(st.kana[item.key], ok)));
-    if (ok) setTimeout(() => next(all), 350);
+    update((st) => {
+      st.kana[q.key] = applyAnswer(st.kana[q.key], ok);
+      const d = (st.kanaLog[today] ??= { n: 0, ok: 0, ms: 0 });
+      d.n++;
+      if (ok) d.ok++;
+      d.ms += Math.round(ms);
+    });
+    if (ok && q.kind === 'word' && voice) speak(q.say!);
+    if (ok) setTimeout(() => next(all), q.kind === 'word' ? 900 : 350);
   };
 
+  // клавиатура: обработчик один, а состояние берёт из ссылки — всегда свежее, без пересоздания на каждый кадр
+  const live = useRef({ feedback, answers, q, voice, next, answer, onQuit });
+  live.current = { feedback, answers, q, voice, next, answer, onQuit };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (feedback && !feedback.ok && (e.key === 'Enter' || e.key === ' ')) {
+      const L = live.current;
+      if (L.feedback && !L.feedback.ok && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
-        next(answers);
-      } else if (!feedback && prefs.mode === 'choice' && /^[1-4]$/.test(e.key)) {
-        const c = choices[Number(e.key) - 1];
-        answer(c, c === right);
-      } else if (e.key === 'Escape') onQuit();
+        L.next(L.answers);
+      } else if (!L.feedback && L.q.choices && /^[1-4]$/.test(e.key)) {
+        L.answer(L.q.choices[Number(e.key) - 1]);
+      } else if (e.key === '0' && L.q.say && L.voice) {
+        speak(L.q.say);
+      } else if (e.key === 'Escape') L.onQuit();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, []);
 
   return (
     <div class="page kana-session">
@@ -252,24 +381,35 @@ function Session({
       <div class="progress">
         <div style={{ width: `${(answers.length / total) * 100}%` }} />
       </div>
-      <div class={`kana-big ja ${feedback ? (feedback.ok ? 'ok' : 'bad') : ''}`} lang="ja">
-        {item.kana}
+      <div class={`kana-big kind-${q.kind} ${feedback ? (feedback.ok ? 'ok' : 'bad') : ''}`} lang={q.kind === 'reading' ? 'ru' : 'ja'}>
+        {q.kind === 'audio' ? (
+          <button class="speak-btn" onClick={() => speak(q.say!)} aria-label="Произнести ещё раз">
+            🔊
+          </button>
+        ) : (
+          <span class={q.kind === 'reading' ? '' : 'ja'}>{q.prompt}</span>
+        )}
       </div>
       <div class="kana-feedback" aria-live="polite">
         {feedback && !feedback.ok && (
           <>
-            Правильно: <b>{right}</b>
-            {prefs.reading === 'cyr' ? ` · ${item.lat}` : ` · ${item.cyr}`}
+            Правильно: <b class={q.kind === 'word' || q.kind === 'kana' ? '' : 'ja'}>{q.reveal}</b>
+            {q.meaning && <> · {q.meaning}</>}
           </>
         )}
-        {feedback?.ok && <span class="saved">Верно</span>}
+        {feedback?.ok && (
+          <span class="saved">
+            Верно{q.meaning && ` · ${q.meaning}`}
+          </span>
+        )}
       </div>
-      {prefs.mode === 'choice' ? (
-        <div class="choices">
-          {choices.map((c, i) => (
+      {q.choices ? (
+        <div class={`choices ${q.choicesAreKana ? 'kana-choices' : ''}`}>
+          {q.choices.map((c, i) => (
             <button
-              class={`choice ${feedback && c === right ? 'right' : ''} ${feedback && !feedback.ok && c === feedback.given ? 'wrong' : ''}`}
-              onClick={() => answer(c, c === right)}
+              class={`choice ${q.choicesAreKana ? 'ja' : ''} ${feedback && c === q.right ? 'right' : ''} ${feedback && !feedback.ok && c === feedback.given ? 'wrong' : ''}`}
+              lang={q.choicesAreKana ? 'ja' : undefined}
+              onClick={() => answer(c)}
               disabled={!!feedback}
             >
               <span class="choice-n">{i + 1}</span>
@@ -282,7 +422,7 @@ function Session({
           class="kana-input"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!feedback && input.trim()) answer(input, isCorrect(item, input));
+            if (!feedback && input.trim()) answer(input);
           }}
         >
           <input
@@ -292,12 +432,13 @@ function Session({
             autocomplete="off"
             autocapitalize="off"
             spellcheck={false}
-            placeholder={prefs.reading === 'cyr' ? 'си' : 'shi'}
+            placeholder={prefs.reading === 'cyr' ? (q.kind === 'word' ? 'нэко' : 'си') : q.kind === 'word' ? 'neko' : 'shi'}
             aria-label="Чтение"
             onInput={(e) => {
               const v = (e.target as HTMLInputElement).value;
               setInput(v);
-              if (isCorrect(item, v)) answer(v, true);
+              // знак засчитываем сразу при совпадении; слово — по Enter (иначе «гакко» оборвётся до «гакко:»)
+              if (q.kind === 'kana' && q.check(v)) answer(v);
             }}
           />
           <button class="btn" type="submit" disabled={!!feedback}>
@@ -311,7 +452,8 @@ function Session({
         </button>
       )}
       <p class="muted small-text center">
-        {prefs.mode === 'choice' ? 'Клавиши 1–4 — выбор, Enter — дальше, Esc — выход' : 'Enter — ответить, Esc — выход'}
+        {q.choices ? 'Клавиши 1–4 — выбор, Enter — дальше' : 'Enter — ответить'}
+        {q.say && voice ? ', 0 — произнести' : ''}, Esc — выход
       </p>
     </div>
   );
@@ -330,7 +472,7 @@ function Result({
   if (answers.length === 0) return null;
   const ok = answers.filter((a) => a.ok).length;
   const avg = answers.reduce((a, b) => a + b.ms, 0) / answers.length / 1000;
-  const errors = [...new Map(answers.filter((a) => !a.ok).map((a) => [a.item.key, a.item])).values()];
+  const errors = [...new Set(answers.filter((a) => !a.ok).map((a) => a.label))];
   const marked = !!s.days[today]?.done.kana;
   return (
     <section class="card current">
@@ -344,14 +486,14 @@ function Result({
         </div>
         <div>
           <b>{avg.toFixed(1)} с</b>
-          <span>в среднем на знак</span>
+          <span>в среднем на ответ</span>
         </div>
       </div>
       {errors.length > 0 && (
         <p>
           Ошибки:{' '}
           <span class="ja" lang="ja">
-            {errors.map((e) => e.kana).join(' ')}
+            {errors.join('、')}
           </span>
         </p>
       )}

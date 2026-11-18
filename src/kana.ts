@@ -87,7 +87,7 @@ export const MAX_BOX = 5;
 export const MASTERED = 4;
 
 /** Следующий знак: чем хуже знаю, тем чаще. Не повторяем только что показанный. */
-export function pickNext(items: KanaItem[], stats: Record<string, KanaStat>, lastKey?: string, rnd = Math.random): KanaItem {
+export function pickNext<T extends { key: string }>(items: T[], stats: Record<string, KanaStat>, lastKey?: string, rnd = Math.random): T {
   const pool = items.length > 1 ? items.filter((i) => i.key !== lastKey) : items;
   const weights = pool.map((i) => {
     const box = stats[i.key]?.box ?? 0;
@@ -123,3 +123,29 @@ export function choicesFor(item: KanaItem, pool: KanaItem[], reading: Reading, r
   }
   return all;
 }
+
+/** 4 знака на выбор: правильный + 3 с другим чтением (じ и ぢ звучат одинаково — вместе не показываем). */
+export function kanaChoicesFor(item: KanaItem, pool: KanaItem[], script: Script, rnd = Math.random): string[] {
+  const others = pool.filter((i) => i.cyr !== item.cyr);
+  const extra = allItems(script).filter((i) => i.cyr !== item.cyr && !others.some((o) => o.key === i.key));
+  const src = others.length >= 3 ? others : [...others, ...extra];
+  const picked: string[] = [];
+  const copy = [...src];
+  while (picked.length < 3 && copy.length) {
+    const c = copy.splice(Math.floor(rnd() * copy.length), 1)[0];
+    if (!picked.some((p) => itemByKana(src, p)?.cyr === c.cyr)) picked.push(c.kana);
+  }
+  const all = [item.kana, ...picked];
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all;
+}
+
+function itemByKana(pool: KanaItem[], kana: string) {
+  return pool.find((i) => i.kana === kana);
+}
+
+/** Знаки, которые на слух не отличить от других: ぢ=じ, づ=ず, を=お. */
+export const SAME_SOUND = new Set(['ぢ', 'づ', 'を', 'ヂ', 'ヅ', 'ヲ']);

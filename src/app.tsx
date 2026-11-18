@@ -11,9 +11,12 @@ import { Settings } from './screens/Settings.tsx';
 import { More } from './screens/More.tsx';
 import { Kana } from './screens/Kana.tsx';
 import { ProgressScreen } from './screens/Progress.tsx';
+import { Stats } from './screens/Stats.tsx';
 import { Icon, type IconName } from './ui.tsx';
+import { useUpdateAvailable } from './update.ts';
+import { TimerBar } from './screens/TimerBar.tsx';
 
-export type Route = 'today' | 'streak' | 'plan' | 'progress' | 'kana' | 'checkpoints' | 'review' | 'diary' | 'resources' | 'settings' | 'more';
+export type Route = 'today' | 'streak' | 'plan' | 'progress' | 'stats' | 'kana' | 'checkpoints' | 'review' | 'diary' | 'resources' | 'settings' | 'more';
 
 interface NavItem {
   r: Route;
@@ -26,6 +29,7 @@ const NAV: NavItem[] = [
   { r: 'streak', label: 'Серия', icon: 'fire' },
   { r: 'plan', label: 'План', icon: 'map' },
   { r: 'progress', label: 'Прогресс', icon: 'chart' },
+  { r: 'stats', label: 'Статистика', icon: 'stats' },
   { r: 'kana', label: 'Тренажёр каны', icon: 'kana' },
   { r: 'checkpoints', label: 'Чекпоинты', icon: 'flag' },
   { r: 'review', label: 'Разбор недели', icon: 'chat' },
@@ -44,7 +48,7 @@ const MOBILE_NAV: NavItem[] = [
   { r: 'more', label: 'Ещё', icon: 'more' },
 ];
 
-const MORE_ROUTES: Route[] = ['streak', 'checkpoints', 'review', 'diary', 'resources', 'settings', 'more'];
+const MORE_ROUTES: Route[] = ['streak', 'stats', 'checkpoints', 'review', 'diary', 'resources', 'settings', 'more'];
 
 function readRoute(): Route {
   const h = location.hash.replace(/^#\/?/, '') as Route;
@@ -76,6 +80,7 @@ export function App() {
     case 'streak': screen = <Streak {...props} />; break;
     case 'plan': screen = <PlanScreen {...props} />; break;
     case 'progress': screen = <ProgressScreen {...props} />; break;
+    case 'stats': screen = <Stats {...props} />; break;
     case 'kana': screen = <Kana {...props} />; break;
     case 'checkpoints': screen = <Checkpoints {...props} />; break;
     case 'review': screen = <ReviewScreen {...props} />; break;
@@ -102,7 +107,11 @@ export function App() {
           ))}
         </nav>
       </aside>
-      <main id="main">{screen}</main>
+      <main id="main">
+        <UpdateBanner />
+        {screen}
+        <TimerBar />
+      </main>
       <nav class="tabbar">
         {MOBILE_NAV.map((n) => {
           const active = n.r === 'more' ? MORE_ROUTES.includes(route) : route === n.r;
@@ -114,6 +123,19 @@ export function App() {
           );
         })}
       </nav>
+    </div>
+  );
+}
+
+function UpdateBanner() {
+  const available = useUpdateAvailable();
+  if (!available) return null;
+  return (
+    <div class="update-banner" role="status">
+      <span>Вышла новая версия приложения.</span>
+      <button class="btn primary small" onClick={() => location.reload()}>
+        Обновить
+      </button>
     </div>
   );
 }

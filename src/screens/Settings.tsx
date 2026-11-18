@@ -7,6 +7,7 @@ import { Header } from '../ui.tsx';
 import { setDevice, useDevice } from '../device.ts';
 import { disconnect, hasUnsynced, syncNow, useSyncStatus } from '../sync.ts';
 import { PROVIDERS } from '../providers.ts';
+import { tokenDaysLeft } from '../github.ts';
 import { ankiWordCount } from '../anki.ts';
 
 export function Settings({ s }: { s: State; today: string }) {
@@ -188,7 +189,7 @@ export function Settings({ s }: { s: State; today: string }) {
         </button>
       </section>
 
-      <p class="muted center small-text">Японский с нуля · версия 1.2</p>
+      <p class="muted center small-text">Японский с нуля · версия 1.3</p>
     </div>
   );
 }
@@ -249,6 +250,7 @@ function SyncSection() {
             {st.phase !== 'syncing' && hasUnsynced() && ' · есть неотправленные изменения'}
           </p>
           {justConnected && st.phase === 'idle' && <p class="saved">Подключено ✓</p>}
+          {pid === 'github' && <TokenExpiry />}
           <div class="row">
             <button class="btn primary small" onClick={() => run()} disabled={busy || st.phase === 'syncing'}>
               Синхронизировать
@@ -337,6 +339,34 @@ function SyncSection() {
       {err && <p class="error-text small-text">{err}</p>}
       {showHelp && !dev.syncEnabled && (pid === 'github' ? <GithubHelp /> : <GoogleHelp />)}
     </section>
+  );
+}
+
+function TokenExpiry() {
+  const dev = useDevice();
+  const left = tokenDaysLeft();
+  return (
+    <div class="token-exp">
+      <label class="field">
+        <span>Токен действует до</span>
+        <input
+          type="date"
+          value={dev.githubTokenExp ?? ''}
+          onChange={(e) => setDevice({ githubTokenExp: (e.target as HTMLInputElement).value || null })}
+        />
+      </label>
+      <p class="muted small-text">
+        {left === null
+          ? 'Укажи дату — приложение напомнит за две недели. Её видно на '
+          : left > 0
+            ? `Осталось ${left} дн. За две недели до конца появится напоминание. Дата — на `
+            : 'Срок закончился — создай новый токен на '}
+        <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">
+          странице токенов GitHub
+        </a>
+        .
+      </p>
+    </div>
   );
 }
 

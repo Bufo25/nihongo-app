@@ -6,7 +6,8 @@ import {
 } from '../logic.ts';
 import { WordsInput } from './Progress.tsx';
 import { SyncNotice } from './SyncNotice.tsx';
-import { MISSED_RULES, WEEKS, badDayText, blockHint, type BlockId } from '../plan.ts';
+import { TimerStart } from './TimerBar.tsx';
+import { MISSED_RULES, WEEKS, badDayText, blockHint, weekResources, type BlockId } from '../plan.ts';
 import { Check, Header, Icon, LessonChip } from '../ui.tsx';
 
 interface P {
@@ -87,6 +88,16 @@ export function Today({ s, today }: P) {
             );
           })}
         </ul>
+        {weekResources(w).length > 0 && (
+          <div class="week-links">
+            {weekResources(w).map((r) => (
+              <a class="res-chip" href={r.url} target="_blank" rel="noopener noreferrer" title={r.note}>
+                {r.name}
+                <Icon name="ext" size={14} />
+              </a>
+            ))}
+          </div>
+        )}
         {lessonsOfWeek(w).length > 0 && (
           <div class="week-lessons">
             <span class="small-text muted">Уроки Minna:</span>
@@ -127,6 +138,7 @@ export function Today({ s, today }: P) {
               <Check checked={!!rec.done[b.id]} onChange={() => toggle(b.id)} meta={`${b.time} · ${blockHint(b.id, w)}`}>
                 {b.title}
               </Check>
+              {!rec.done[b.id] && b.id !== 'diary' && <TimerStart block={b.id} />}
               {b.id === 'diary' && (
                 <a class="side-link" href="#/diary">
                   написать →
@@ -184,6 +196,7 @@ export function Today({ s, today }: P) {
                     {b.title}
                     <span class={`pill ${n >= 3 ? 'ok' : ''}`}>{n >= 3 ? 'норма недели ✓' : `${n}/3 за неделю`}</span>
                   </Check>
+                  {!rec.done[b.id] && <TimerStart block={b.id} />}
                 </li>
               );
             })}
