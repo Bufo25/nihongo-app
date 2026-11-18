@@ -2,10 +2,12 @@ import { useState } from 'preact/hooks';
 import { update } from '../store.ts';
 import {
   activeBlocks, addDays, diffDays, computeStreak, countInWeek, dayStatus, fmtDay, gapBeforeToday, isWeekend, mondayOf,
-  monthOfWeek, planWeekOf, plural, weekRange, type State,
+  monthOfWeek, planWeekOf, plural, weekRange, lessonsOfWeek, lastSolidLesson, latestWords, type State,
 } from '../logic.ts';
+import { WordsInput } from './Progress.tsx';
+import { SyncNotice } from './SyncNotice.tsx';
 import { MISSED_RULES, WEEKS, badDayText, blockHint, type BlockId } from '../plan.ts';
-import { Check, Header, Icon } from '../ui.tsx';
+import { Check, Header, Icon, LessonChip } from '../ui.tsx';
 
 interface P {
   s: State;
@@ -85,7 +87,20 @@ export function Today({ s, today }: P) {
             );
           })}
         </ul>
+        {lessonsOfWeek(w).length > 0 && (
+          <div class="week-lessons">
+            <span class="small-text muted">Уроки Minna:</span>
+            {lessonsOfWeek(w).map((n) => (
+              <LessonChip s={s} n={n} />
+            ))}
+            <a class="small-text" href="#/progress">
+              все уроки →
+            </a>
+          </div>
+        )}
       </section>
+
+      <SyncNotice />
 
       {missed && (
         <div class="banner">
@@ -93,6 +108,9 @@ export function Today({ s, today }: P) {
             Перерыв {gap} {plural(gap!, 'день', 'дня', 'дней')}.
           </strong>{' '}
           {missed.what}
+          {missed === MISSED_RULES[2] && w >= 5 && (
+            <> {lastSolidLesson(s) > 0 ? `Пройдено подряд: уроки 1–${lastSolidLesson(s)} — начни с урока ${lastSolidLesson(s)}.` : 'Начни с урока 1.'}</>
+          )}
         </div>
       )}
 
@@ -112,6 +130,11 @@ export function Today({ s, today }: P) {
               {b.id === 'diary' && (
                 <a class="side-link" href="#/diary">
                   написать →
+                </a>
+              )}
+              {b.id === 'kana' && (
+                <a class="side-link" href="#/kana">
+                  тренажёр →
                 </a>
               )}
             </li>
@@ -165,6 +188,22 @@ export function Today({ s, today }: P) {
               );
             })}
           </ul>
+        </section>
+      )}
+
+      {w >= 2 && wordsDue(s, today) && (
+        <section class="card">
+          <div class="card-head">
+            <h2>Сколько слов в Anki?</h2>
+            <a class="small-text" href="#/progress">
+              прогресс →
+            </a>
+          </div>
+          <p class="muted small-text">
+            Раз в неделю — чтобы видеть путь к ~400 словам к месяцу 2 и 600–800 к концу плана.
+            {latestWords(s) && ` В прошлый раз: ${latestWords(s)!.count}.`}
+          </p>
+          <WordsInput s={s} today={today} compact />
         </section>
       )}
 
@@ -248,4 +287,11 @@ function Onboarding({ today }: { today: string }) {
       </section>
     </div>
   );
+}
+
+/** Пора записать число слов: записей нет или последней больше 6 дней. Сегодняшняя запись — карточка остаётся до конца дня. */
+function wordsDue(s: State, today: string): boolean {
+  if (s.words[today] !== undefined) return true;
+  const last = latestWords(s);
+  return !last || diffDays(last.date, today) > 6;
 }

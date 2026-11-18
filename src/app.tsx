@@ -9,9 +9,11 @@ import { Diary } from './screens/Diary.tsx';
 import { Resources } from './screens/Resources.tsx';
 import { Settings } from './screens/Settings.tsx';
 import { More } from './screens/More.tsx';
+import { Kana } from './screens/Kana.tsx';
+import { ProgressScreen } from './screens/Progress.tsx';
 import { Icon, type IconName } from './ui.tsx';
 
-export type Route = 'today' | 'streak' | 'plan' | 'checkpoints' | 'review' | 'diary' | 'resources' | 'settings' | 'more';
+export type Route = 'today' | 'streak' | 'plan' | 'progress' | 'kana' | 'checkpoints' | 'review' | 'diary' | 'resources' | 'settings' | 'more';
 
 interface NavItem {
   r: Route;
@@ -23,6 +25,8 @@ const NAV: NavItem[] = [
   { r: 'today', label: 'Сегодня', icon: 'today' },
   { r: 'streak', label: 'Серия', icon: 'fire' },
   { r: 'plan', label: 'План', icon: 'map' },
+  { r: 'progress', label: 'Прогресс', icon: 'chart' },
+  { r: 'kana', label: 'Тренажёр каны', icon: 'kana' },
   { r: 'checkpoints', label: 'Чекпоинты', icon: 'flag' },
   { r: 'review', label: 'Разбор недели', icon: 'chat' },
   { r: 'diary', label: 'Дневник', icon: 'pen' },
@@ -30,15 +34,17 @@ const NAV: NavItem[] = [
   { r: 'settings', label: 'Настройки', icon: 'gear' },
 ];
 
+const byRoute = (r: Route) => NAV.find((n) => n.r === r)!;
+
 const MOBILE_NAV: NavItem[] = [
-  NAV[0],
-  NAV[1],
-  NAV[2],
-  NAV[5],
+  byRoute('today'),
+  byRoute('plan'),
+  { ...byRoute('kana'), label: 'Кана' },
+  byRoute('progress'),
   { r: 'more', label: 'Ещё', icon: 'more' },
 ];
 
-const MORE_ROUTES: Route[] = ['checkpoints', 'review', 'resources', 'settings', 'more'];
+const MORE_ROUTES: Route[] = ['streak', 'checkpoints', 'review', 'diary', 'resources', 'settings', 'more'];
 
 function readRoute(): Route {
   const h = location.hash.replace(/^#\/?/, '') as Route;
@@ -69,6 +75,8 @@ export function App() {
   switch (route) {
     case 'streak': screen = <Streak {...props} />; break;
     case 'plan': screen = <PlanScreen {...props} />; break;
+    case 'progress': screen = <ProgressScreen {...props} />; break;
+    case 'kana': screen = <Kana {...props} />; break;
     case 'checkpoints': screen = <Checkpoints {...props} />; break;
     case 'review': screen = <ReviewScreen {...props} />; break;
     case 'diary': screen = <Diary {...props} />; break;

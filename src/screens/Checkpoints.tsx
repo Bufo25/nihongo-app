@@ -1,6 +1,7 @@
 import { update } from '../store.ts';
-import { monthOfWeek, planWeekOf, type State } from '../logic.ts';
+import { lessonsDone, latestWords, monthOfWeek, planWeekOf, type State } from '../logic.ts';
 import { MONTHS } from '../plan.ts';
+import { MASTERED, allItems } from '../kana.ts';
 import { Check, Header, Progress } from '../ui.tsx';
 
 export function Checkpoints({ s, today }: { s: State; today: string }) {
@@ -33,6 +34,7 @@ export function Checkpoints({ s, today }: { s: State; today: string }) {
                     >
                       {c}
                     </Check>
+                    {hint(s, id) && <span class="pill">{hint(s, id)}</span>}
                   </li>
                 );
               })}
@@ -42,4 +44,31 @@ export function Checkpoints({ s, today }: { s: State; today: string }) {
       })}
     </div>
   );
+}
+
+/** Подсказка из данных приложения рядом с чекпоинтом. Отмечаешь всё равно сам. */
+function hint(s: State, id: string): string | null {
+  const done = lessonsDone(s);
+  const words = latestWords(s)?.count;
+  switch (id) {
+    case 'm2c0':
+      return `уроков пройдено: ${done}/8`;
+    case 'm3c0':
+      return `уроков пройдено: ${done}/14`;
+    case 'm2c1':
+      return words !== undefined ? `сейчас ${words}` : null;
+    case 'm1c0': {
+      return kanaHint(s, 'hira');
+    }
+    case 'm1c1':
+      return kanaHint(s, 'kata');
+    default:
+      return null;
+  }
+}
+
+function kanaHint(s: State, script: 'hira' | 'kata'): string | null {
+  const items = allItems(script).slice(0, 46);
+  const known = items.filter((i) => (s.kana[i.key]?.box ?? 0) >= MASTERED).length;
+  return known > 0 ? `в тренажёре: ${known}/46` : null;
 }

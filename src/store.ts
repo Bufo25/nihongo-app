@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { dayKey, emptyState, lastActiveDay, type State } from './logic.ts';
 import { idbSet } from './idb.ts';
+import { stampChanges } from './merge.ts';
 
 const KEY = 'nihongo-v1';
 
@@ -25,6 +26,26 @@ export function getState(): State {
 export function update(fn: (s: State) => void): void {
   const next = structuredClone(state);
   fn(next);
+  stampChanges(state, next);
+  commit(next);
+  changeSubs.forEach((f) => f());
+}
+
+/** Записать готовое состояние (после слияния при синхронизации) без новых отметок времени. */
+export function applySynced(next: State): void {
+  commit(next);
+}
+
+const changeSubs = new Set<() => void>();
+/** Подписка на правки пользователя (не на результаты синхронизации). */
+export function onLocalChange(f: () => void): () => void {
+  changeSubs.add(f);
+  return () => {
+    changeSubs.delete(f);
+  };
+}
+
+function commit(next: State): void {
   state = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
@@ -33,10 +54,6 @@ export function update(fn: (s: State) => void): void {
   }
   mirrorForWorker();
   subs.forEach((f) => f());
-}
-
-export function replaceState(s: State): void {
-  update((cur) => Object.assign(cur, s));
 }
 
 /** Service worker не видит localStorage — кладём ему нужное для напоминаний в IndexedDB. */

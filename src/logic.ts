@@ -22,7 +22,20 @@ export interface State {
   checkpoints: Record<string, true>; // "m1c0"
   reviews: Record<string, Review>; // ключ — понедельник календарной недели
   diary: Record<string, string>;
-  reminder: { enabled: boolean; time: string };
+  reminder: { enabled: boolean; time: string }; // не синхронизируется: у каждого устройства своё
+  lessons: Record<string, LessonState>; // уроки Minna: "1".."14"
+  words: Record<string, number>; // сколько слов в Anki на дату
+  kana: Record<string, KanaStat>; // статистика тренажёра по знакам
+  mtime: Record<string, number>; // когда менялся каждый элемент — для слияния при синхронизации
+}
+
+/** 1 — в процессе, 2 — пройден */
+export type LessonState = 1 | 2;
+
+export interface KanaStat {
+  box: number; // 0..5 — насколько хорошо знаю (коробки Лейтнера)
+  ok: number;
+  bad: number;
 }
 
 export function emptyState(): State {
@@ -36,6 +49,10 @@ export function emptyState(): State {
     reviews: {},
     diary: {},
     reminder: { enabled: false, time: '20:00' },
+    lessons: {},
+    words: {},
+    kana: {},
+    mtime: {},
   };
 }
 
@@ -237,4 +254,31 @@ export function lastActiveDay(s: State): string | null {
       .sort()
       .pop() ?? null
   );
+}
+
+// ---------- уроки и слова ----------
+
+export const LESSONS_TOTAL = 14;
+
+/** Какие уроки Minna по плану на этой неделе. */
+export function lessonsOfWeek(w: number): number[] {
+  if (w < 5 || w > 11) return [];
+  const first = (w - 5) * 2 + 1;
+  return [first, first + 1];
+}
+
+export function lessonsDone(s: State): number {
+  return Object.values(s.lessons).filter((v) => v === 2).length;
+}
+
+/** Последний пройденный урок подряд с первого (то, к чему возвращаться после перерыва). */
+export function lastSolidLesson(s: State): number {
+  let n = 0;
+  while (n < LESSONS_TOTAL && s.lessons[String(n + 1)] === 2) n++;
+  return n;
+}
+
+export function latestWords(s: State): { date: string; count: number } | null {
+  const k = Object.keys(s.words).sort().pop();
+  return k ? { date: k, count: s.words[k] } : null;
 }
