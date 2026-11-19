@@ -90,24 +90,38 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   await p.locator('.sheet').waitFor();
   ok((await p.locator('.sheet-word').textContent()) === word, 'нажатие на слово открывает карточку: ' + word);
   ok((await p.evaluate(() => window.__spoken)).includes(word), 'слово произносится');
+  // словарь (локально — образец, в CI — настоящий JMdict)
+  await p.locator('.dict-entry').first().waitFor({ timeout: 15000 });
+  const head = (await p.locator('.dict-head b').first().textContent()).trim();
+  const senses = await p.locator('.dict-senses').first().textContent();
+  ok(head === '猫' && /[а-яё]/i.test(senses), `словарь: ${word} → ${head}: ${senses.slice(0, 40)}`);
+  ok((await p.locator('.dict-reading').first().textContent()).includes('ねこ'), 'чтение из словаря');
   const links = await p.locator('.sheet-links a').evaluateAll((as) => as.map((a) => a.href));
-  ok(links[0].includes('translate.yandex.ru') && links[0].includes(encodeURIComponent(word)), 'ссылка на перевод слова');
+  ok(links[0].includes('translate.yandex.ru') && links[0].includes(encodeURIComponent('猫')), 'ссылка на переводчик — по словарной форме');
   await p.getByRole('button', { name: '★ В мои слова' }).click();
   ok(await p.getByRole('button', { name: '✓ В моих словах' }).isVisible(), 'слово сохранено');
+  await p.getByRole('button', { name: 'Закрыть' }).click();
+
+  // спряжённая форма: します → する
+  const shi = p.locator('.rline').nth(1).locator('.tok', { hasText: /^し/ }).first();
+  await shi.click();
+  await p.locator('.dict-form').first().waitFor({ timeout: 5000 });
+  const form = await p.locator('.dict-form').first().textContent();
+  ok(/← する: вежливая/.test(form), 'форма приведена к словарной: ' + form.trim());
   await p.getByRole('button', { name: 'Закрыть' }).click();
 
   // позиция запоминается
   await p.waitForTimeout(3500);
   const s1 = await st(p);
   const id = Object.keys(s1.texts)[0];
-  ok(s1.readerPos[id] >= 1 && s1.savedWords[word].sentence.includes(word), 'позиция и слово с фразой записаны');
+  ok(s1.readerPos[id] >= 1 && s1.savedWords['猫'].sentence.includes(word) && /[а-яё]/i.test(s1.savedWords['猫'].meaning), 'позиция и слово с чтением, значением и фразой записаны');
 
   // мои слова → файл для Anki
   await p.goto(APP + '#/reader/words');
   ok((await p.locator('.word-row').count()) === 1, 'в «Моих словах» 1 слово');
   const [dl] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: 'Скачать для Anki' }).click()]);
   const tsv = fs.readFileSync(await dl.path(), 'utf8');
-  ok(tsv.startsWith(word + '\t') && tsv.includes('Про кошек'), 'файл для Anki: слово, фраза, источник');
+  ok(tsv.startsWith('猫\tねこ — ') && tsv.includes('<br>') && tsv.includes('Про кошек'), 'файл для Anki: слово, чтение и значение, фраза, источник');
 
   // файл субтитров без видео: фразы озвучиваются голосом
   await p.goto(APP + '#/reader');

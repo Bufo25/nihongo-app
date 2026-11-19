@@ -37,6 +37,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || !req.url.startsWith(self.registration.scope)) return;
+  // словарь: не в общем кэше версии (10+ МБ не качаем при установке), а в своём — при первом открытии читалки
+  if (req.url.includes('/dict/')) {
+    event.respondWith(dictFetch(req));
+    return;
+  }
   if (req.mode === 'navigate') {
     event.respondWith(caches.match(indexUrl, { ignoreVary: true }).then((r) => r ?? fetch(req)));
     return;
@@ -73,3 +78,24 @@ self.addEventListener('notificationclick', (event) => {
     }),
   );
 });
+
+const DICT_CACHE = 'dict-cache';
+
+/** index.json — сначала сеть (узнать о новой версии), файл словаря — сначала кэш (он неизменяемый, имя с хэшем). */
+async function dictFetch(req: Request): Promise<Response> {
+  const cache = await caches.open(DICT_CACHE);
+  if (req.url.endsWith('/index.json')) {
+    try {
+      const res = await fetch(req);
+      if (res.ok) await cache.put(req.url, res.clone());
+      return res;
+    } catch {
+      return (await cache.match(req.url)) ?? Response.error();
+    }
+  }
+  const hit = await cache.match(req.url);
+  if (hit) return hit;
+  const res = await fetch(req);
+  if (res.ok) await cache.put(req.url, res.clone());
+  return res;
+}

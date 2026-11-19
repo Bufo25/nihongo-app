@@ -34,6 +34,19 @@ jobs:
         env:
           # Settings → Secrets and variables → Actions → Variables: GOOGLE_CLIENT_ID (не секрет)
           VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+      - name: Словарь JMdict (русский + английский для частых слов)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .dict
+          gh release download -R scriptin/jmdict-simplified -D .dict \
+            --pattern 'jmdict-rus-[0-9]*.json.tgz' --pattern 'jmdict-eng-common-[0-9]*.json.tgz'
+          for f in .dict/*.tgz; do tar xzf "$f" -C .dict; done
+          ls -la .dict
+          node --max-old-space-size=4096 scripts/build-dict.mjs \
+            --rus "$(ls .dict/jmdict-rus-*.json | head -1)" \
+            --eng "$(ls .dict/jmdict-eng-common-*.json | head -1)" \
+            --out dist/dict
       - name: Браузер для тестов
         run: npx playwright install --with-deps chromium
       - name: Браузерные тесты

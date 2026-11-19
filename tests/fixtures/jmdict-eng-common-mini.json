@@ -1,0 +1,212 @@
+{
+ "version": "3.6.1",
+ "dictDate": "2026-11-16",
+ "languages": [
+  "rus"
+ ],
+ "commonOnly": false,
+ "dictRevisions": [],
+ "tags": {},
+ "words": [
+  {
+   "id": "16",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "ゲーム",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "game"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "17",
+   "kanji": [
+    {
+     "common": true,
+     "text": "良い",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "いい",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": true,
+     "text": "よい",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "adj-ix"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "good"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "nice"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1",
+   "kanji": [
+    {
+     "common": true,
+     "text": "猫",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "ねこ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "cat"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "18",
+   "kanji": [
+    {
+     "common": false,
+     "text": "稀",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": false,
+     "text": "まれ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "adj-na"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "rare"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

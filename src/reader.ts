@@ -14,7 +14,9 @@ export interface ReaderText {
 }
 
 export interface SavedWord {
-  word: string;
+  word: string; // словарная форма
+  reading?: string; // чтение каной (из словаря)
+  meaning?: string; // значение (из словаря)
   sentence: string;
   source: string; // название текста
   at: string;
@@ -182,10 +184,21 @@ export function hasJapanese(s: string): boolean {
   return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(s);
 }
 
-/** Слова для импорта в Anki: «слово<TAB>фраза<TAB>источник» по строке на слово. */
+/**
+ * Слова для импорта в Anki, по строке на слово: «слово<TAB>оборот<TAB>источник».
+ * Оборот — чтение и значение (если есть) и фраза через <br> (в Anki — «Разрешить HTML»).
+ */
 export function wordsTsv(words: SavedWord[]): string {
-  const esc = (s: string) => s.replace(/[\t\n\r]+/g, ' ').trim();
-  return words.map((w) => [esc(w.word), esc(w.sentence), esc(w.source)].join('\t')).join('\n') + '\n';
+  const esc = (s: string) => s.replace(/[\t\n\r]+/g, ' ').replace(/</g, '&lt;').trim();
+  return (
+    words
+      .map((w) => {
+        const head = [w.reading, w.meaning].filter(Boolean).map((x) => esc(x!)).join(' — ');
+        const back = [head, esc(w.sentence)].filter(Boolean).join('<br>');
+        return [esc(w.word), back, esc(w.source)].join('\t');
+      })
+      .join('\n') + '\n'
+  );
 }
 
 export function fmtTime(sec: number): string {

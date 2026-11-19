@@ -1,0 +1,820 @@
+{
+ "version": "3.6.1",
+ "dictDate": "2026-11-16",
+ "languages": [
+  "rus"
+ ],
+ "commonOnly": false,
+ "dictRevisions": [],
+ "tags": {},
+ "words": [
+  {
+   "id": "1",
+   "kanji": [
+    {
+     "common": true,
+     "text": "猫",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "ねこ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "кошка"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "кот"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2",
+   "kanji": [
+    {
+     "common": true,
+     "text": "食べる",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "たべる",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "v1",
+      "vt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "есть"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "кушать"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3",
+   "kanji": [
+    {
+     "common": true,
+     "text": "書く",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "かく",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "v5k",
+      "vt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "писать"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "4",
+   "kanji": [
+    {
+     "common": true,
+     "text": "行く",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "逝く",
+     "tags": [
+      "rK"
+     ]
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "いく",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": true,
+     "text": "ゆく",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "v5k-s",
+      "vi"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "идти"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "ехать"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "5",
+   "kanji": [
+    {
+     "common": true,
+     "text": "可愛い",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "かわいい",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "adj-i"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "милый"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "симпатичный"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "6",
+   "kanji": [
+    {
+     "common": true,
+     "text": "勉強",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "べんきょう",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n",
+      "vs",
+      "vt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "учёба"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "занятия"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "7",
+   "kanji": [
+    {
+     "common": true,
+     "text": "今日",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "きょう",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n",
+      "adv"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "сегодня"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "8",
+   "kanji": [
+    {
+     "common": true,
+     "text": "天気",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "てんき",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "погода"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "9",
+   "kanji": [
+    {
+     "common": true,
+     "text": "話",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "はなし",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "рассказ"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "разговор"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "10",
+   "kanji": [
+    {
+     "common": true,
+     "text": "学生",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "がくせい",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "студент"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "учащийся"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "11",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "する",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "vs-i"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "делать"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "12",
+   "kanji": [
+    {
+     "common": true,
+     "text": "来る",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "くる",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "vk",
+      "vi"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "приходить"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "13",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "みなさん",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "pn"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "все (вежл.)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "14",
+   "kanji": [
+    {
+     "common": true,
+     "text": "見る",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "みる",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "v1",
+      "vt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "смотреть"
+      },
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "видеть"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "15",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "とても",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "adv"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "rus",
+       "gender": null,
+       "type": null,
+       "text": "очень"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "16",
+   "kanji": [],
+   "kana": [
+    {
+     "common": false,
+     "text": "ゲーム",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": []
+    }
+   ]
+  }
+ ]
+}

@@ -189,7 +189,7 @@ export function Settings({ s }: { s: State; today: string }) {
         </button>
       </section>
 
-      <p class="muted center small-text">Японский с нуля · версия 1.5</p>
+      <p class="muted center small-text">Японский с нуля · версия 1.6</p>
     </div>
   );
 }

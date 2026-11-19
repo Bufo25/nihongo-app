@@ -6,6 +6,7 @@ import {
   type Line, type ReaderText, type SavedWord,
 } from '../reader.ts';
 import { findJapaneseVoice, speak } from '../speech.ts';
+import { ensureDict, posRu, useDict } from '../dict.ts';
 import { Header, Icon } from '../ui.tsx';
 
 /** #/reader — список; #/reader/<id> — чтение; #/reader/words — мои слова. */
@@ -212,8 +213,9 @@ function loadYT(): Promise<NonNullable<Window['YT']>> {
 // ---------- чтение ----------
 
 interface Picked {
-  word: string;
+  word: string; // слово, на которое нажали (как его выделил браузер)
   line: number;
+  offset: number; // где это слово начинается во фразе — словарь ищет от этого места
 }
 
 function ReaderView({ s, text }: { s: State; text: ReaderText }) {
@@ -361,12 +363,12 @@ function ReaderView({ s, text }: { s: State; text: ReaderText }) {
             </select>
           </>
         )}
-        <span class="muted small-text">Нажми на слово — перевод и «в мои слова»</span>
+        <DictBadge />
       </div>
 
       <ol class="reader-lines" ref={listRef}>
         {lines.map((l, i) => (
-          <ReaderLine line={l} i={i} current={i === cur} onPlay={() => playLine(i)} onWord={(w) => setPicked({ word: w, line: i })} />
+          <ReaderLine line={l} i={i} current={i === cur} onPlay={() => playLine(i)} onWord={(w, off) => setPicked({ word: w, line: i, offset: off })} />
         ))}
       </ol>
 
@@ -384,8 +386,23 @@ function ReaderView({ s, text }: { s: State; text: ReaderText }) {
   );
 }
 
-function ReaderLine({ line, i, current, onPlay, onWord }: { line: Line; i: number; current: boolean; onPlay: () => void; onWord: (w: string) => void }) {
-  const toks = useMemo(() => tokenize(line.text), [line.text]);
+function ReaderLine({
+  line, i, current, onPlay, onWord,
+}: {
+  line: Line;
+  i: number;
+  current: boolean;
+  onPlay: () => void;
+  onWord: (w: string, offset: number) => void;
+}) {
+  const toks = useMemo(() => {
+    let off = 0;
+    return tokenize(line.text).map((t) => {
+      const at = off;
+      off += t.text.length;
+      return { ...t, at };
+    });
+  }, [line.text]);
   return (
     <li class={`rline ${current ? 'current' : ''}`} data-i={i}>
       <button class="rline-play" onClick={onPlay} aria-label={line.t !== null ? `С ${fmtTime(line.t)}` : 'Произнести фразу'}>
@@ -394,7 +411,7 @@ function ReaderLine({ line, i, current, onPlay, onWord }: { line: Line; i: numbe
       <p class="rline-text ja" lang="ja">
         {toks.map((t) =>
           t.word ? (
-            <span class="tok" role="button" tabIndex={0} onClick={() => onWord(t.text)} onKeyDown={(e) => e.key === 'Enter' && onWord(t.text)}>
+            <span class="tok" role="button" tabIndex={0} onClick={() => onWord(t.text, t.at)} onKeyDown={(e) => e.key === 'Enter' && onWord(t.text, t.at)}>
               {t.text}
             </span>
           ) : (
@@ -416,37 +433,104 @@ function WordSheet({
   onReplay: () => void;
   onClose: () => void;
 }) {
-  const saved = !!s.savedWords[picked.word];
+  const ds = useDict();
+  const found = ds.state === 'ready' ? ds.dict.lookup(sentence.slice(picked.offset)) : null;
+  // словарь мог найти слово длиннее, чем выделил браузер (食べ|まし|た → 食べました)
+  const surface = found ? sentence.slice(picked.offset, picked.offset + found.length) : picked.word;
+  const top = found?.matches[0];
+  const head = top ? top.entry.kanji[0] ?? top.entry.kana[0] : surface;
+  const reading = top && top.entry.kanji.length ? top.entry.kana[0] : '';
+  const meaning = top ? top.entry.senses.slice(0, 2).map((x) => x.text).join('; ') : '';
+  const saved = !!s.savedWords[head];
   const [copied, setCopied] = useState(false);
+  const [more, setMore] = useState(false);
   useEffect(() => {
-    speak(picked.word, 0.85);
+    speak(top?.base && top.reasons.length ? top.base : surface, 0.85);
     setCopied(false);
-  }, [picked.word, picked.line]);
+    setMore(false);
+  }, [picked.word, picked.line, picked.offset, ds.state]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, []);
+  const shown = found ? (more ? found.matches : found.matches.slice(0, 2)) : [];
   return (
-    <div class="sheet" role="dialog" aria-label={`Слово ${picked.word}`}>
+    <div class="sheet" role="dialog" aria-label={`Слово ${surface}`}>
       <div class="sheet-head">
         <span class="sheet-word ja" lang="ja">
-          {picked.word}
+          {surface}
         </span>
         <button class="icon-btn" onClick={onClose} aria-label="Закрыть">
           ✕
         </button>
       </div>
+
+      <div class="dict-results">
+        {ds.state === 'loading' && (
+          <p class="muted small-text">
+            Загружаю словарь… {(ds.loaded / 1e6).toFixed(1)} из {(ds.total / 1e6).toFixed(1)} МБ (один раз, потом работает без интернета)
+          </p>
+        )}
+        {ds.state === 'error' && (
+          <p class="small-text">
+            <span class="error-text">Словарь не загрузился: {ds.message}.</span>{' '}
+            <button class="linklike" onClick={() => ensureDict()}>
+              повторить
+            </button>
+          </p>
+        )}
+        {ds.state === 'missing' && <p class="muted small-text">В этой версии приложения словаря нет.</p>}
+        {ds.state === 'ready' && !found && <p class="muted small-text">В словаре не нашлось — попробуй переводчик ниже.</p>}
+        {shown.map((m) => (
+          <div class="dict-entry">
+            <div class="dict-head">
+              <b class="ja" lang="ja">
+                {m.entry.kanji[0] ?? m.entry.kana[0]}
+              </b>
+              {m.entry.kanji.length > 0 && (
+                <span class="ja dict-reading" lang="ja">
+                  {m.entry.kana.join('、')}
+                </span>
+              )}
+              {m.entry.common && <span class="pill ok">частое</span>}
+              {m.entry.english && <span class="pill">англ.</span>}
+            </div>
+            {m.reasons.length > 0 && (
+              <p class="dict-form small-text">
+                <span class="ja" lang="ja">
+                  {surface}
+                </span>{' '}
+                ← <span class="ja" lang="ja">{m.base}</span>: {m.reasons.join(' → ')}
+              </p>
+            )}
+            <ol class="dict-senses">
+              {m.entry.senses.map((x) => (
+                <li>
+                  {posRu(x.pos) && <span class="muted small-text">{posRu(x.pos)} </span>}
+                  {x.text}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+        {found && found.matches.length > 2 && !more && (
+          <button class="linklike small-text" onClick={() => setMore(true)}>
+            ещё {found.matches.length - 2}
+          </button>
+        )}
+      </div>
+
       <div class="sheet-actions">
-        <button class="btn small" onClick={() => speak(picked.word, 0.8)}>
+        <button class="btn small" onClick={() => speak(top?.base ?? surface, 0.8)}>
           🔊 Слово
         </button>
         <button
           class={`btn small ${saved ? '' : 'primary'}`}
           onClick={() =>
             update((st) => {
-              if (st.savedWords[picked.word]) delete st.savedWords[picked.word];
-              else st.savedWords[picked.word] = { word: picked.word, sentence, source, at: new Date().toISOString() } satisfies SavedWord;
+              if (st.savedWords[head]) delete st.savedWords[head];
+              else st.savedWords[head] = { word: head, reading, meaning, sentence, source, at: new Date().toISOString() } satisfies SavedWord;
             })
           }
         >
@@ -456,7 +540,7 @@ function WordSheet({
           class="btn small"
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(picked.word);
+              await navigator.clipboard.writeText(head);
               setCopied(true);
             } catch {
               /* нет доступа к буферу */
@@ -467,12 +551,12 @@ function WordSheet({
         </button>
       </div>
       <p class="sheet-links small-text">
-        Перевод слова:{' '}
-        {translateLinks(picked.word).map((l, i) => (
+        Переводчик:{' '}
+        {translateLinks(head).map((l, i) => (
           <>
             {i > 0 && ' · '}
             <a href={l.url} target="_blank" rel="noopener noreferrer">
-              {l.name}
+              {l.name.split(' ')[0]}
             </a>
           </>
         ))}
@@ -496,6 +580,7 @@ function WordSheet({
           ))}
         </p>
       </div>
+      {ds.state === 'ready' && <p class="dict-credit">Словарь JMdict © EDRDG, CC BY-SA 4.0</p>}
     </div>
   );
 }
@@ -528,7 +613,7 @@ function Words({ s }: { s: State }) {
               <summary class="small-text">Как загрузить в Anki</summary>
               <ol class="plain small-text">
                 <li>В Anki: «Файл» → «Импорт» → выбери скачанный файл.</li>
-                <li>Разделитель полей — табуляция. Тип записи «Основная»: поле 1 → «Лицевая сторона» (слово), поле 2 → «Оборотная» (фраза), поле 3 — в теги или пропустить.</li>
+                <li>Разделитель полей — табуляция, отметь «Разрешить HTML». Тип записи «Основная»: поле 1 → «Лицевая сторона» (слово), поле 2 → «Оборотная» (чтение, значение и фраза), поле 3 — в теги или пропустить.</li>
                 <li>Колоду выбери отдельную, например «Слова из видео», — чтобы не смешивать с KaishiRu.</li>
               </ol>
             </details>
@@ -540,7 +625,9 @@ function Words({ s }: { s: State }) {
                   <span>
                     <b class="ja" lang="ja">
                       {w.word}
+                      {w.reading && <span class="dict-reading"> {w.reading}</span>}
                     </b>
+                    {w.meaning && <span class="small-text">{w.meaning}</span>}
                     <span class="muted small-text ja" lang="ja">
                       {w.sentence}
                     </span>
@@ -561,5 +648,18 @@ function Words({ s }: { s: State }) {
         <p class="muted">Пока пусто. Открой текст в читалке, нажми на слово и «★ В мои слова».</p>
       )}
     </div>
+  );
+}
+
+function DictBadge() {
+  const ds = useDict();
+  return (
+    <span class="muted small-text">
+      {ds.state === 'loading'
+        ? `Загружаю словарь… ${Math.round((ds.loaded / Math.max(ds.total, 1)) * 100)}%`
+        : ds.state === 'ready'
+          ? 'Нажми на слово — значение из словаря'
+          : 'Нажми на слово — перевод и «в мои слова»'}
+    </span>
   );
 }

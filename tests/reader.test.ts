@@ -105,4 +105,8 @@ test('выгрузка слов для Anki', () => {
     wordsTsv([{ word: '猫', sentence: '猫が\tいる', source: 'Видео', at: '' }]),
     '猫\t猫が いる\tВидео\n',
   );
+  assert.equal(
+    wordsTsv([{ word: '猫', reading: 'ねこ', meaning: 'кошка; кот', sentence: '猫がいる', source: 'Видео', at: '' }]),
+    '猫\tねこ — кошка; кот<br>猫がいる\tВидео\n',
+  );
 });

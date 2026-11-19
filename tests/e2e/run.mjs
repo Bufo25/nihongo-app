@@ -1,13 +1,25 @@
 // Запуск браузерных тестов: поднимает собранное приложение (vite preview) и прогоняет все *.e2e.cjs по очереди.
 // Перед запуском нужна сборка: npm run build.
-import { spawn } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const port = 4173;
 const only = process.argv[2];
+
+// в сборке нет словаря (локально) — подложить маленький образец, как делает CI с настоящим JMdict
+const dist = join(here, '../../dist');
+if (!existsSync(join(dist, 'dict/index.json'))) {
+  const r = spawnSync(process.execPath, [
+    join(here, '../../scripts/build-dict.mjs'),
+    '--rus', join(here, '../fixtures/jmdict-rus-mini.json'),
+    '--eng', join(here, '../fixtures/jmdict-eng-common-mini.json'),
+    '--out', join(dist, 'dict'),
+  ], { stdio: 'inherit' });
+  if (r.status !== 0) process.exit(1);
+}
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore', cwd: join(here, '../..') });
 
