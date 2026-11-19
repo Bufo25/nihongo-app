@@ -136,6 +136,15 @@ const dayKana = (s, day) => Object.entries(s.kanaLog).filter(([k]) => k.startsWi
   s = await st(p);
   ok(dayKana(s, '2026-11-17') >= 10 && Object.keys(s.kana).some((k) => k.startsWith('w:')), 'журнал тренажёра и статистика слов записаны');
 
+  // заголовки разделов в «Ресурсах» не налезают на карточки
+  await p.goto(APP + '#/resources');
+  const gap = await p.evaluate(() => {
+    const h = document.querySelector('.section-title');
+    const card = h.nextElementSibling;
+    return card.getBoundingClientRect().top - h.getBoundingClientRect().bottom;
+  });
+  ok(gap >= 4, 'отступ под заголовком раздела: ' + gap + 'px');
+
   // статистика
   await p.goto(APP + '#/stats');
   await p.locator('.kpi').first().waitFor();

@@ -16,6 +16,7 @@ export interface ReaderText {
 export interface SavedWord {
   word: string; // словарная форма
   reading?: string; // чтение каной (из словаря)
+  cyr?: string; // транскрипция по Поливанову
   meaning?: string; // значение (из словаря)
   sentence: string;
   source: string; // название текста
@@ -193,7 +194,8 @@ export function wordsTsv(words: SavedWord[]): string {
   return (
     words
       .map((w) => {
-        const head = [w.reading, w.meaning].filter(Boolean).map((x) => esc(x!)).join(' — ');
+        const say = [w.reading, w.cyr ? `[${w.cyr}]` : ''].filter(Boolean).join(' ');
+        const head = [say, w.meaning].filter(Boolean).map((x) => esc(x!)).join(' — ');
         const back = [head, esc(w.sentence)].filter(Boolean).join('<br>');
         return [esc(w.word), back, esc(w.source)].join('\t');
       })

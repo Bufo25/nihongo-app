@@ -6,7 +6,8 @@ import {
   type Line, type ReaderText, type SavedWord,
 } from '../reader.ts';
 import { findJapaneseVoice, speak } from '../speech.ts';
-import { ensureDict, posRu, useDict } from '../dict.ts';
+import { ensureDict, posRu, useDict, type Dictionary } from '../dict.ts';
+import { isKana, readingOf, toCyrillic, toLatin } from '../transcribe.ts';
 import { Header, Icon } from '../ui.tsx';
 
 /** #/reader — список; #/reader/<id> — чтение; #/reader/words — мои слова. */
@@ -210,6 +211,43 @@ function loadYT(): Promise<NonNullable<Window['YT']>> {
   return ytLoading;
 }
 
+// ---------- подписи над словами ----------
+
+type Ruby = 'none' | 'kana' | 'cyr' | 'lat';
+const RUBY_KEY = 'nihongo-reader-ruby';
+const loadRuby = (): Ruby => {
+  try {
+    return (localStorage.getItem(RUBY_KEY) as Ruby) || 'none';
+  } catch {
+    return 'none';
+  }
+};
+
+/** Чтение каной для слова в тексте: само слово, если оно на кане, иначе — по словарю. */
+function tokenReading(dict: Dictionary | null, lineText: string, at: number, tok: string): string | null {
+  // частицы は и へ читаются «ва» и «э»; так же в приветствиях
+  if (tok === 'は') return 'わ';
+  if (tok === 'へ') return 'え';
+  if (/^(こんにち|こんばん)は$/.test(tok)) return tok.slice(0, -1) + 'わ';
+  if (isKana(tok)) return tok;
+  if (!dict) return null;
+  const r = dict.lookup(lineText.slice(at), tok.length);
+  if (!r) return null;
+  const m = r.matches[0];
+  const baseReading = isKana(m.base) ? m.base : m.entry.kana[0];
+  const head = readingOf(tok.slice(0, r.length), m.base, baseReading);
+  if (head === null) return null;
+  const rest = tok.slice(r.length);
+  if (!rest) return head;
+  return isKana(rest) ? head + rest : null;
+}
+
+/** Транскрипция чтения: кириллица, латиница или сама кана. */
+function transcribe(reading: string, mode: Exclude<Ruby, 'none'>): string | null {
+  if (mode === 'kana') return reading;
+  return mode === 'cyr' ? toCyrillic(reading) : toLatin(reading);
+}
+
 // ---------- чтение ----------
 
 interface Picked {
@@ -225,6 +263,17 @@ function ReaderView({ s, text }: { s: State; text: ReaderText }) {
   const [rate, setRate] = useState(1);
   const [video, setVideo] = useState<'loading' | 'ready' | 'error'>(text.videoId ? 'loading' : 'error');
   const [picked, setPicked] = useState<Picked | null>(null);
+  const [ruby, setRubyRaw] = useState<Ruby>(loadRuby);
+  const setRuby = (r: Ruby) => {
+    setRubyRaw(r);
+    try {
+      localStorage.setItem(RUBY_KEY, r);
+    } catch {
+      /* ignore */
+    }
+  };
+  const ds = useDict();
+  const dict = ds.state === 'ready' ? ds.dict : null;
   const player = useRef<YTPlayer | null>(null);
   const holder = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -363,12 +412,26 @@ function ReaderView({ s, text }: { s: State; text: ReaderText }) {
             </select>
           </>
         )}
+        <select aria-label="Подписи над словами" value={ruby} onChange={(e) => setRuby((e.target as HTMLSelectElement).value as Ruby)}>
+          <option value="none">Без подписей</option>
+          <option value="kana">Подписи: кана</option>
+          <option value="cyr">Подписи: кириллица</option>
+          <option value="lat">Подписи: латиница</option>
+        </select>
         <DictBadge />
       </div>
 
       <ol class="reader-lines" ref={listRef}>
         {lines.map((l, i) => (
-          <ReaderLine line={l} i={i} current={i === cur} onPlay={() => playLine(i)} onWord={(w, off) => setPicked({ word: w, line: i, offset: off })} />
+          <ReaderLine
+            line={l}
+            i={i}
+            current={i === cur}
+            ruby={ruby}
+            dict={dict}
+            onPlay={() => playLine(i)}
+            onWord={(w, off) => setPicked({ word: w, line: i, offset: off })}
+          />
         ))}
       </ol>
 
@@ -387,11 +450,13 @@ function ReaderView({ s, text }: { s: State; text: ReaderText }) {
 }
 
 function ReaderLine({
-  line, i, current, onPlay, onWord,
+  line, i, current, ruby, dict, onPlay, onWord,
 }: {
   line: Line;
   i: number;
   current: boolean;
+  ruby: Ruby;
+  dict: Dictionary | null;
   onPlay: () => void;
   onWord: (w: string, offset: number) => void;
 }) {
@@ -400,19 +465,33 @@ function ReaderLine({
     return tokenize(line.text).map((t) => {
       const at = off;
       off += t.text.length;
-      return { ...t, at };
+      let ann: string | null = null;
+      if (ruby !== 'none' && t.word && !(ruby === 'kana' && isKana(t.text))) {
+        const r = tokenReading(dict, line.text, at, t.text);
+        ann = r ? transcribe(r, ruby) : null;
+      }
+      return { ...t, at, ann };
     });
-  }, [line.text]);
+  }, [line.text, ruby, dict]);
   return (
     <li class={`rline ${current ? 'current' : ''}`} data-i={i}>
       <button class="rline-play" onClick={onPlay} aria-label={line.t !== null ? `С ${fmtTime(line.t)}` : 'Произнести фразу'}>
         {line.t !== null ? fmtTime(line.t) : '🔊'}
       </button>
-      <p class="rline-text ja" lang="ja">
+      <p class={`rline-text ja ${ruby !== 'none' ? 'with-ruby' : ''}`} lang="ja">
         {toks.map((t) =>
           t.word ? (
             <span class="tok" role="button" tabIndex={0} onClick={() => onWord(t.text, t.at)} onKeyDown={(e) => e.key === 'Enter' && onWord(t.text, t.at)}>
-              {t.text}
+              {t.ann ? (
+                <ruby>
+                  {t.text}
+                  <rt class={ruby === 'kana' ? '' : 'rt-latin'} lang={ruby === 'kana' ? 'ja' : ruby === 'cyr' ? 'ru' : 'en'}>
+                    {t.ann}
+                  </rt>
+                </ruby>
+              ) : (
+                t.text
+              )}
             </span>
           ) : (
             t.text
@@ -441,6 +520,10 @@ function WordSheet({
   const head = top ? top.entry.kanji[0] ?? top.entry.kana[0] : surface;
   const reading = top && top.entry.kanji.length ? top.entry.kana[0] : '';
   const meaning = top ? top.entry.senses.slice(0, 2).map((x) => x.text).join('; ') : '';
+  // чтение того, что в тексте: по словарю или сама кана
+  const surfReading = top ? readingOf(surface, top.base, isKana(top.base) ? top.base : top.entry.kana[0]) : isKana(surface) ? surface : null;
+  const headReading = reading || (isKana(head) ? head : '');
+  const cyr = headReading ? toCyrillic(headReading) : null;
   const saved = !!s.savedWords[head];
   const [copied, setCopied] = useState(false);
   const [more, setMore] = useState(false);
@@ -465,6 +548,17 @@ function WordSheet({
           ✕
         </button>
       </div>
+      {surfReading && (
+        <p class="transcr">
+          {surfReading !== surface && (
+            <span class="ja" lang="ja">
+              {surfReading}
+            </span>
+          )}
+          <span>{toCyrillic(surfReading)}</span>
+          <span class="muted">{toLatin(surfReading)}</span>
+        </p>
+      )}
 
       <div class="dict-results">
         {ds.state === 'loading' && (
@@ -530,7 +624,16 @@ function WordSheet({
           onClick={() =>
             update((st) => {
               if (st.savedWords[head]) delete st.savedWords[head];
-              else st.savedWords[head] = { word: head, reading, meaning, sentence, source, at: new Date().toISOString() } satisfies SavedWord;
+              else
+                st.savedWords[head] = {
+                  word: head,
+                  reading: headReading && headReading !== head ? headReading : '',
+                  cyr: cyr ?? '',
+                  meaning,
+                  sentence,
+                  source,
+                  at: new Date().toISOString(),
+                } satisfies SavedWord;
             })
           }
         >
@@ -626,6 +729,7 @@ function Words({ s }: { s: State }) {
                     <b class="ja" lang="ja">
                       {w.word}
                       {w.reading && <span class="dict-reading"> {w.reading}</span>}
+                      {w.cyr && <span class="dict-reading"> [{w.cyr}]</span>}
                     </b>
                     {w.meaning && <span class="small-text">{w.meaning}</span>}
                     <span class="muted small-text ja" lang="ja">

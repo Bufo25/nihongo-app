@@ -33,7 +33,7 @@ const TRANSCRIPT = `0:00
 0:07
 ねこは とても かわいいです。
 0:12
-では、また あした。`;
+では、また あした。今日は 勉強しました。`;
 
 const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')));
 
@@ -96,11 +96,23 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   const senses = await p.locator('.dict-senses').first().textContent();
   ok(head === '猫' && /[а-яё]/i.test(senses), `словарь: ${word} → ${head}: ${senses.slice(0, 40)}`);
   ok((await p.locator('.dict-reading').first().textContent()).includes('ねこ'), 'чтение из словаря');
+  const tr = await p.locator('.transcr').textContent();
+  ok(tr.includes('нэко') && tr.includes('neko'), 'транскрипция в карточке: ' + tr);
   const links = await p.locator('.sheet-links a').evaluateAll((as) => as.map((a) => a.href));
   ok(links[0].includes('translate.yandex.ru') && links[0].includes(encodeURIComponent('猫')), 'ссылка на переводчик — по словарной форме');
   await p.getByRole('button', { name: '★ В мои слова' }).click();
   ok(await p.getByRole('button', { name: '✓ В моих словах' }).isVisible(), 'слово сохранено');
   await p.getByRole('button', { name: 'Закрыть' }).click();
+
+  // подписи над словами
+  await p.getByLabel('Подписи над словами').selectOption('cyr');
+  const rtCyr = await p.locator('.rline').nth(2).locator('rt').allTextContents();
+  ok(rtCyr.includes('нэко') && rtCyr.includes('тотэмо') && rtCyr.includes('каваии') && rtCyr.includes('ва') && !rtCyr.includes('ха'), 'подписи кириллицей: ' + rtCyr.join(' '));
+  await p.getByLabel('Подписи над словами').selectOption('kana');
+  const rtKana = await p.locator('.rline').nth(3).locator('rt').allTextContents();
+  ok(rtKana.includes('きょう') && rtKana.includes('べんきょう'), 'подписи каной над иероглифами: ' + rtKana.join(' '));
+  ok((await p.locator('.rline').nth(2).locator('rt').count()) === 0, 'над каной в режиме «кана» подписей нет');
+  await p.getByLabel('Подписи над словами').selectOption('none');
 
   // спряжённая форма: します → する
   const shi = p.locator('.rline').nth(1).locator('.tok', { hasText: /^し/ }).first();
@@ -121,7 +133,7 @@ const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('nihongo-v1')
   ok((await p.locator('.word-row').count()) === 1, 'в «Моих словах» 1 слово');
   const [dl] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: 'Скачать для Anki' }).click()]);
   const tsv = fs.readFileSync(await dl.path(), 'utf8');
-  ok(tsv.startsWith('猫\tねこ — ') && tsv.includes('<br>') && tsv.includes('Про кошек'), 'файл для Anki: слово, чтение и значение, фраза, источник');
+  ok(tsv.startsWith('猫\tねこ [нэко] — ') && tsv.includes('<br>') && tsv.includes('Про кошек'), 'файл для Anki: слово, чтение и значение, фраза, источник');
 
   // файл субтитров без видео: фразы озвучиваются голосом
   await p.goto(APP + '#/reader');
