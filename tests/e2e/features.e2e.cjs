@@ -154,8 +154,11 @@ const dayKana = (s, day) => Object.entries(s.kanaLog).filter(([k]) => k.startsWi
     (await p.locator('.heat-cell[aria-label^="вторник, 17 ноября"]').getAttribute('class')).includes('h-none'),
     'карта активности: сегодня есть, без отметок — «не отмечено»',
   );
-  await p.locator('.col').last().focus();
-  ok(await p.locator('.tip').isVisible(), 'подсказка у столбика при фокусе');
+  const lastCol = p.locator('.col').last();
+  await lastCol.focus();
+  // подсказка того графика, где фокус (у другого может висеть подсказка от мыши)
+  const chart = p.locator('.chart-wrap', { has: lastCol });
+  ok(await chart.locator('.tip').isVisible(), 'подсказка у столбика при фокусе');
   ok(errors.length === 0, 'нет ошибок в консоли ' + errors.join('; '));
   await ctx.close();
 
