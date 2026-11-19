@@ -2,7 +2,7 @@ import { update } from './store.ts';
 import type { State } from './logic.ts';
 import type { ComponentChildren } from 'preact';
 
-export type IconName = 'today' | 'fire' | 'map' | 'flag' | 'chat' | 'pen' | 'link' | 'gear' | 'more' | 'check' | 'chev' | 'ext' | 'chart' | 'kana' | 'cloud' | 'stats';
+export type IconName = 'today' | 'fire' | 'map' | 'flag' | 'chat' | 'pen' | 'link' | 'gear' | 'more' | 'check' | 'chev' | 'ext' | 'chart' | 'kana' | 'cloud' | 'stats' | 'book';
 
 const PATHS: Record<Exclude<IconName, 'kana'>, string> = {
   today: 'M4 6h16M4 6v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6M4 6V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v1M8 2v4M16 2v4M8.5 14l2.5 2.5 4.5-5',
@@ -15,6 +15,7 @@ const PATHS: Record<Exclude<IconName, 'kana'>, string> = {
   gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2.1 1.2L14.7 21h-4l-.3-2a7 7 0 0 1-2.1-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-2.4L4.4 10.3l2-3.4 1.9.7a7 7 0 0 1 2.1-1.2l.3-2h4l.3 2a7 7 0 0 1 2.1 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 2.4z',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  book: 'M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h12M9 7h6M9 11h4',
   stats: 'M3 12h4l3-8 4 16 3-8h4',
   cloud: 'M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9.5 4.3 4.3 0 0 0 7 18z',
   check: 'M5 12.5l4.5 4.5L19 7.5',

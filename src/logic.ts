@@ -1,5 +1,6 @@
 // Чистая логика: даты, недели плана, статусы дней, серия. Без DOM.
 import { BLOCKS, type BlockId } from './plan.ts';
+import type { ReaderText, SavedWord } from './reader.ts';
 
 export interface DayRec {
   done: Partial<Record<BlockId, true>>;
@@ -30,6 +31,9 @@ export interface State {
   // не затирала счёт другого устройства. Старые ключи «YYYY-MM-DD» тоже читаются.
   kanaLog: Record<string, KanaDay>; // занятия тренажёром по дням
   minutes: Record<string, Partial<Record<BlockId, number>>>; // минуты по блокам за день (таймер, тренажёр)
+  texts: Record<string, ReaderText>; // читалка: расшифровки видео и субтитры
+  readerPos: Record<string, number>; // на какой фразе остановился в каждом тексте
+  savedWords: Record<string, SavedWord>; // «мои слова» из читалки
   mtime: Record<string, number>; // когда менялся каждый элемент — для слияния при синхронизации
 }
 
@@ -64,6 +68,9 @@ export function emptyState(): State {
     kana: {},
     kanaLog: {},
     minutes: {},
+    texts: {},
+    readerPos: {},
+    savedWords: {},
     mtime: {},
   };
 }

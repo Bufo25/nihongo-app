@@ -2,6 +2,7 @@ import { Header, Icon, type IconName } from '../ui.tsx';
 
 const ITEMS: { href: string; icon: IconName; title: string; sub: string }[] = [
   { href: '#/streak', icon: 'fire', title: 'Серия дней', sub: 'Календарь с крестиками' },
+  { href: '#/reader', icon: 'book', title: 'Читалка', sub: 'Видео с YouTube или субтитры → текст со словами' },
   { href: '#/stats', icon: 'stats', title: 'Статистика', sub: 'Дни, время, точность по неделям и месяцам' },
   { href: '#/diary', icon: 'pen', title: 'Дневник', sub: '1–2 предложения на японском' },
   { href: '#/checkpoints', icon: 'flag', title: 'Чекпоинты', sub: 'Итоги каждого месяца' },

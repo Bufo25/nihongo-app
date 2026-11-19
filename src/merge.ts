@@ -4,7 +4,7 @@
 import type { State } from './logic.ts';
 
 /** Коллекции, которые синхронизируются поэлементно. */
-const COLLECTIONS = ['days', 'tasks', 'checkpoints', 'reviews', 'diary', 'lessons', 'words', 'kana', 'kanaLog', 'minutes'] as const;
+const COLLECTIONS = ['days', 'tasks', 'checkpoints', 'reviews', 'diary', 'lessons', 'words', 'kana', 'kanaLog', 'minutes', 'texts', 'readerPos', 'savedWords'] as const;
 /** Одиночные поля, которые синхронизируются целиком. */
 const FIELDS = ['startDate', 'weekLengths'] as const;
 
